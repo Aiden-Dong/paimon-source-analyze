@@ -1,0 +1,229 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.paimon.flink.lookup;
+
+import org.apache.paimon.CoreOptions;
+import org.apache.paimon.data.GenericRow;
+import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.flink.FlinkConnectorOptions;
+import org.apache.paimon.flink.FlinkRowData;
+import org.apache.paimon.flink.lookup.PrimaryKeyPartialLookupTable.LocalQueryExecutor;
+import org.apache.paimon.flink.lookup.PrimaryKeyPartialLookupTable.QueryExecutor;
+import org.apache.paimon.flink.lookup.PrimaryKeyPartialLookupTable.RemoteQueryExecutor;
+import org.apache.paimon.lookup.RocksDBOptions;
+import org.apache.paimon.options.Options;
+import org.apache.paimon.schema.Schema;
+import org.apache.paimon.schema.SchemaManager;
+import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.service.ServiceManager;
+import org.apache.paimon.table.FileStoreTable;
+import org.apache.paimon.table.FileStoreTableFactory;
+import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.StreamTableWrite;
+import org.apache.paimon.table.sink.TableCommitImpl;
+import org.apache.paimon.types.DataType;
+import org.apache.paimon.types.DataTypes;
+import org.apache.paimon.types.RowType;
+import org.apache.paimon.utils.TraceableFileIO;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.net.InetSocketAddress;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+
+import static org.apache.paimon.service.ServiceManager.PRIMARY_KEY_LOOKUP;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/** Tests for {@link FileStoreLookupFunction}. */
+public class FileStoreLookupFunctionTest {
+
+    private static final Random RANDOM = new Random();
+
+    @TempDir private Path tempDir;
+
+    private final String commitUser = UUID.randomUUID().toString();
+    private final TraceableFileIO fileIO = new TraceableFileIO();
+
+    private org.apache.paimon.fs.Path tablePath;
+    private FileStoreLookupFunction lookupFunction;
+    private FileStoreTable table;
+
+    @BeforeEach
+    public void before() throws Exception {
+        tablePath = new org.apache.paimon.fs.Path(tempDir.toString());
+    }
+
+    private void createLookupFunction() throws Exception {
+        createLookupFunction(true, false);
+    }
+
+    private void createLookupFunction(boolean isPartition, boolean joinEqualPk) throws Exception {
+        createLookupFunction(isPartition, joinEqualPk, false);
+    }
+
+    private void createLookupFunction(
+            boolean isPartition, boolean joinEqualPk, boolean dynamicPartition) throws Exception {
+        SchemaManager schemaManager = new SchemaManager(fileIO, tablePath);
+        Options conf = new Options();
+        conf.set(CoreOptions.BUCKET, 2);
+        conf.set(CoreOptions.SNAPSHOT_NUM_RETAINED_MAX, 3);
+        conf.set(CoreOptions.SNAPSHOT_NUM_RETAINED_MIN, 2);
+        conf.set(RocksDBOptions.LOOKUP_CONTINUOUS_DISCOVERY_INTERVAL, Duration.ofSeconds(1));
+        if (dynamicPartition) {
+            conf.set(FlinkConnectorOptions.LOOKUP_DYNAMIC_PARTITION, "max_pt()");
+        }
+
+        RowType rowType =
+                RowType.of(
+                        new DataType[] {DataTypes.INT(), DataTypes.INT(), DataTypes.BIGINT()},
+                        new String[] {"pt", "k", "v"});
+
+        Schema schema =
+                new Schema(
+                        rowType.getFields(),
+                        isPartition ? Collections.singletonList("pt") : Collections.emptyList(),
+                        Arrays.asList("pt", "k"),
+                        conf.toMap(),
+                        "");
+        TableSchema tableSchema = schemaManager.createTable(schema);
+        table =
+                FileStoreTableFactory.create(
+                        fileIO, new org.apache.paimon.fs.Path(tempDir.toString()), tableSchema);
+
+        lookupFunction =
+                new FileStoreLookupFunction(
+                        table,
+                        new int[] {0, 1},
+                        joinEqualPk ? new int[] {0, 1} : new int[] {1},
+                        null);
+        lookupFunction.open(tempDir.toString());
+    }
+
+    @AfterEach
+    public void close() throws Exception {
+        if (lookupFunction != null) {
+            lookupFunction.close();
+        }
+    }
+
+    @Test
+    public void testDefaultLocalPartial() throws Exception {
+        createLookupFunction(false, true);
+        assertThat(lookupFunction.lookupTable()).isInstanceOf(PrimaryKeyPartialLookupTable.class);
+        QueryExecutor queryExecutor =
+                ((PrimaryKeyPartialLookupTable) lookupFunction.lookupTable()).queryExecutor();
+        assertThat(queryExecutor).isInstanceOf(LocalQueryExecutor.class);
+    }
+
+    @Test
+    public void testDefaultRemotePartial() throws Exception {
+        createLookupFunction(false, true);
+        ServiceManager serviceManager = new ServiceManager(fileIO, tablePath);
+        serviceManager.resetService(
+                PRIMARY_KEY_LOOKUP, new InetSocketAddress[] {new InetSocketAddress(1)});
+        lookupFunction.open(tempDir.toString());
+        assertThat(lookupFunction.lookupTable()).isInstanceOf(PrimaryKeyPartialLookupTable.class);
+        QueryExecutor queryExecutor =
+                ((PrimaryKeyPartialLookupTable) lookupFunction.lookupTable()).queryExecutor();
+        assertThat(queryExecutor).isInstanceOf(RemoteQueryExecutor.class);
+    }
+
+    @Test
+    public void testLookupScanLeak() throws Exception {
+        createLookupFunction();
+        commit(writeCommit(1));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+        assertThat(
+                        TraceableFileIO.openInputStreams(
+                                        s -> s.toString().contains(tempDir.toString()))
+                                .size())
+                .isEqualTo(0);
+
+        commit(writeCommit(10));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+        assertThat(
+                        TraceableFileIO.openInputStreams(
+                                        s -> s.toString().contains(tempDir.toString()))
+                                .size())
+                .isEqualTo(0);
+    }
+
+    @Test
+    public void testLookupExpiredSnapshot() throws Exception {
+        createLookupFunction();
+        commit(writeCommit(1));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+
+        commit(writeCommit(2));
+        commit(writeCommit(3));
+        commit(writeCommit(4));
+        commit(writeCommit(5));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+    }
+
+    @Test
+    public void testLookupDynamicPartition() throws Exception {
+        createLookupFunction(true, false, true);
+        commit(writeCommit(1));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+        assertThat(
+                        TraceableFileIO.openInputStreams(
+                                        s -> s.toString().contains(tempDir.toString()))
+                                .size())
+                .isEqualTo(0);
+
+        commit(writeCommit(10));
+        lookupFunction.lookup(new FlinkRowData(GenericRow.of(1, 1, 10L)));
+        assertThat(
+                        TraceableFileIO.openInputStreams(
+                                        s -> s.toString().contains(tempDir.toString()))
+                                .size())
+                .isEqualTo(0);
+    }
+
+    private void commit(List<CommitMessage> messages) throws Exception {
+        TableCommitImpl commit = table.newCommit(commitUser);
+        commit.commit(messages);
+        commit.close();
+    }
+
+    private List<CommitMessage> writeCommit(int number) throws Exception {
+        List<CommitMessage> messages = new ArrayList<>();
+        StreamTableWrite writer = table.newStreamWriteBuilder().newWrite();
+        for (int i = 0; i < number; i++) {
+            writer.write(randomRow());
+            messages.addAll(writer.prepareCommit(true, i));
+        }
+        return messages;
+    }
+
+    private InternalRow randomRow() {
+        return GenericRow.of(RANDOM.nextInt(100), RANDOM.nextInt(100), RANDOM.nextLong());
+    }
+}

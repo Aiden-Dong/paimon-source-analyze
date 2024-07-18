@@ -1,0 +1,52 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+### action factories
+org.apache.paimon.flink.action.CompactActionFactory
+org.apache.paimon.flink.action.CompactDatabaseActionFactory
+org.apache.paimon.flink.action.DropPartitionActionFactory
+org.apache.paimon.flink.action.DeleteActionFactory
+org.apache.paimon.flink.action.MergeIntoActionFactory
+org.apache.paimon.flink.action.RollbackToActionFactory
+org.apache.paimon.flink.action.CreateTagActionFactory
+org.apache.paimon.flink.action.DeleteTagActionFactory
+org.apache.paimon.flink.action.ResetConsumerActionFactory
+org.apache.paimon.flink.action.MigrateTableActionFactory
+org.apache.paimon.flink.action.MigrateDatabaseActionFactory
+org.apache.paimon.flink.action.RemoveOrphanFilesActionFactory
+org.apache.paimon.flink.action.QueryServiceActionFactory
+
+### procedure factories
+org.apache.paimon.flink.procedure.CompactDatabaseProcedure
+org.apache.paimon.flink.procedure.CompactProcedure
+org.apache.paimon.flink.procedure.CreateTagProcedure
+org.apache.paimon.flink.procedure.DeleteTagProcedure
+org.apache.paimon.flink.procedure.CreateBranchProcedure
+org.apache.paimon.flink.procedure.DeleteBranchProcedure
+org.apache.paimon.flink.procedure.DropPartitionProcedure
+org.apache.paimon.flink.procedure.MergeIntoProcedure
+org.apache.paimon.flink.procedure.ResetConsumerProcedure
+org.apache.paimon.flink.procedure.RollbackToProcedure
+org.apache.paimon.flink.procedure.MigrateTableProcedure
+org.apache.paimon.flink.procedure.MigrateDatabaseProcedure
+org.apache.paimon.flink.procedure.MigrateFileProcedure
+org.apache.paimon.flink.procedure.RemoveOrphanFilesProcedure
+org.apache.paimon.flink.procedure.QueryServiceProcedure
+org.apache.paimon.flink.procedure.ExpireSnapshotsProcedure
+org.apache.paimon.flink.procedure.privilege.InitFileBasedPrivilegeProcedure
+org.apache.paimon.flink.procedure.privilege.CreatePrivilegedUserProcedure
+org.apache.paimon.flink.procedure.privilege.DropPrivilegedUserProcedure
+org.apache.paimon.flink.procedure.privilege.GrantPrivilegeToUserProcedure
+org.apache.paimon.flink.procedure.privilege.RevokePrivilegeFromUserProcedure
