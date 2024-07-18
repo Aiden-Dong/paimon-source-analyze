@@ -42,9 +42,12 @@ case class WriteIntoPaimonTable(
   with SchemaHelper
   with Logging {
 
+  // 是否要合并 schema
   private lazy val mergeSchema = options.get(SparkConnectorOptions.MERGE_SCHEMA)
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+
+    // TODO-1 Schema 合并处理
     if (mergeSchema) {
       val dataSchema = SparkSystemColumns.filterSparkSystemColumns(data.schema)
       val allowExplicitCast = options.get(SparkConnectorOptions.EXPLICIT_CAST)
@@ -56,16 +59,21 @@ case class WriteIntoPaimonTable(
     updateTableWithOptions(
       Map(DYNAMIC_PARTITION_OVERWRITE.key -> dynamicPartitionOverwriteMode.toString))
 
+    // TODO-2 获取 表写入工具
     val writer = PaimonSparkWriter(table)
     if (overwritePartition != null) {
       writer.writeBuilder.withOverwrite(overwritePartition.asJava)
     }
+    // TODO-3 ： 数据写入到 paimon 表
     val commitMessages = writer.write(data)
+
+    // TODO-4 : 提交 snapshot
     writer.commit(commitMessages)
 
     Seq.empty
   }
 
+  // 解析写入类型，是否是动态分区写， 后面是对应的分区
   private def parseSaveMode(): (Boolean, Map[String, String]) = {
     var dynamicPartitionOverwriteMode = false
     val overwritePartition = saveMode match {

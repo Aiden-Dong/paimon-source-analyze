@@ -69,34 +69,38 @@ case class PaimonSparkWriter(table: FileStoreTable) {
     val dataSchema = SparkSystemColumns.filterSparkSystemColumns(data.schema)
     val rowkindColIdx = SparkRowUtils.getFieldIndex(data.schema, ROW_KIND_COL)
 
-    // append _bucket_ column as placeholder
+    // 在原始数据中增加 _bucket_ 的列
     val withInitBucketCol = data.withColumn(BUCKET_COL, lit(-1))
-    val bucketColIdx = withInitBucketCol.schema.size - 1
+    val bucketColIdx = withInitBucketCol.schema.size - 1    // bucket 数据列索引位置
 
     val originEncoderGroup = EncoderSerDeGroup(dataSchema)
     val encoderGroupWithBucketCol = EncoderSerDeGroup(withInitBucketCol.schema)
 
-    val withBucketCol =
-      assignBucketId(sparkSession, withInitBucketCol, bucketColIdx, encoderGroupWithBucketCol)
+    // 为每条数据记录有效的bucketId, 并且按照 bucketId 对数据进行重新分区
+    val withBucketCol = assignBucketId(sparkSession, withInitBucketCol, bucketColIdx, encoderGroupWithBucketCol)
 
-    val commitMessages = withBucketCol
-      .mapPartitions {
+    val commitMessages = withBucketCol.mapPartitions {
         iter =>
+          // 创建一个写入对象
           val ioManager = createIOManager
           val write = writeBuilder.newWrite()
           write.withIOManager(ioManager)
+
           try {
             iter.foreach {
               row =>
+                // 获取桶 ID
                 val bucket = row.getInt(bucketColIdx)
-                val bucketColDropped =
-                  originEncoderGroup.internalToRow(encoderGroupWithBucketCol.rowToInternal(row))
-                val sparkRow = new SparkRow(
-                  rowType,
-                  bucketColDropped,
-                  SparkRowUtils.getRowKind(row, rowkindColIdx))
+                // 将 bucket 列 Drop 掉
+                val bucketColDropped = originEncoderGroup.internalToRow(encoderGroupWithBucketCol.rowToInternal(row))
+
+                val sparkRow = new SparkRow(rowType, bucketColDropped, SparkRowUtils.getRowKind(row, rowkindColIdx))
+
+                // 将数据写入对应的bucket
                 write.write(sparkRow, bucket)
             }
+
+            // 返回当前 bucket 写入记录
             val serializer = new CommitMessageSerializer
             write.prepareCommit().asScala.map(serializer.serialize).toIterator
 
@@ -122,7 +126,7 @@ case class PaimonSparkWriter(table: FileStoreTable) {
     }
   }
 
-  /** assign a valid bucket id for each of record. */
+  /** 为每条数据记录一个有效的桶ID. */
   private def assignBucketId(
       sparkSession: SparkSession,
       withInitBucketCol: DataFrame,
@@ -174,11 +178,9 @@ case class PaimonSparkWriter(table: FileStoreTable) {
 
       case BucketMode.FIXED =>
         // Topology: input -> bucket-assigner -> shuffle by partition & bucket
-        val commonBucketProcessor =
-          CommonBucketProcessor(table, bucketColIdx, encoderGroupWithBucketCol)
-        repartitionByPartitionsAndBucket(
-          withInitBucketCol.mapPartitions(commonBucketProcessor.processPartition)(
-            encoderWithBucketCOl))
+        val commonBucketProcessor = CommonBucketProcessor(table, bucketColIdx, encoderGroupWithBucketCol)
+
+        repartitionByPartitionsAndBucket(withInitBucketCol.mapPartitions(commonBucketProcessor.processPartition)(encoderWithBucketCOl))
 
       case _ =>
         throw new UnsupportedOperationException(s"Spark doesn't support $bucketMode mode.")

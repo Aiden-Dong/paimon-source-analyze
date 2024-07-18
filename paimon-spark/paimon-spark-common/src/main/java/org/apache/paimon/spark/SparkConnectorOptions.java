@@ -29,15 +29,13 @@ public class SparkConnectorOptions {
             key("write.merge-schema")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription(
-                            "If true, merge the data schema and the table schema automatically before write data.");
+                    .withDescription("If true, merge the data schema and the table schema automatically before write data.");
 
     public static final ConfigOption<Boolean> EXPLICIT_CAST =
             key("write.merge-schema.explicit-cast")
                     .booleanType()
                     .defaultValue(false)
-                    .withDescription(
-                            "If true, allow to merge data types if the two types meet the rules for explicit casting.");
+                    .withDescription("If true, allow to merge data types if the two types meet the rules for explicit casting.");
 
     public static final ConfigOption<Integer> MAX_FILES_PER_TRIGGER =
             key("read.stream.maxFilesPerTrigger")

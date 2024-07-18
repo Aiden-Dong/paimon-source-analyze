@@ -67,11 +67,13 @@ public class SparkTable
         return new PaimonScanBuilder(newTable);
     }
 
+    // 表名
     @Override
     public String name() {
         return table.name();
     }
 
+    // 获取表 Schema 细腻
     @Override
     public StructType schema() {
         return SparkTypeUtils.fromPaimonRowType(table.rowType());
@@ -107,17 +109,20 @@ public class SparkTable
 
     @Override
     public Map<String, String> properties() {
+
         if (table instanceof DataTable) {
-            Map<String, String> properties =
-                    new HashMap<>(((DataTable) table).coreOptions().toMap());
+            Map<String, String> properties = new HashMap<>(((DataTable) table).coreOptions().toMap());
+
             if (!table.primaryKeys().isEmpty()) {
-                properties.put(
-                        CoreOptions.PRIMARY_KEY.key(), String.join(",", table.primaryKeys()));
+                properties.put(CoreOptions.PRIMARY_KEY.key(), String.join(",", table.primaryKeys()));
             }
+
             properties.put(TableCatalog.PROP_PROVIDER, SparkSource.NAME());
+
             if (table.comment().isPresent()) {
                 properties.put(TableCatalog.PROP_COMMENT, table.comment().get());
             }
+
             return properties;
         } else {
             return Collections.emptyMap();
