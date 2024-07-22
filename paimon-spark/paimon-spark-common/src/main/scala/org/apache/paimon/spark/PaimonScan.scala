@@ -29,8 +29,7 @@ import org.apache.spark.sql.types.StructType
 
 import scala.collection.JavaConverters._
 
-case class PaimonScan(
-    table: Table,
+case class PaimonScan(table: Table,
     requiredSchema: StructType,
     filters: Seq[Predicate],
     reservedFilters: Seq[Filter],

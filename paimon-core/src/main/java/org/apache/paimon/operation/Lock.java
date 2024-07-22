@@ -30,7 +30,7 @@ import java.io.Serializable;
 import java.util.concurrent.Callable;
 
 /**
- * An interface that allows file store to use global lock to some transaction-related things.
+ * 一个允许文件存储使用全局锁进行某些与事务相关操作的接口。
  *
  * @since 0.4.0
  */
@@ -40,7 +40,7 @@ public interface Lock extends AutoCloseable {
     /** Run with lock. */
     <T> T runWithLock(Callable<T> callable) throws Exception;
 
-    /** A factory to create {@link Lock}. */
+    /** A factory t˙o create {@link Lock}. */
     interface Factory extends Serializable {
         Lock create();
     }

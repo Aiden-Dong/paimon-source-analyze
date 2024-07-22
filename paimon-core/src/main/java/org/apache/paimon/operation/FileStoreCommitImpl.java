@@ -78,24 +78,20 @@ import static org.apache.paimon.partition.PartitionPredicate.createPartitionPred
 import static org.apache.paimon.utils.BranchManager.DEFAULT_MAIN_BRANCH;
 
 /**
- * Default implementation of {@link FileStoreCommit}.
+ * {@link FileStoreCommit} 的默认实现。
  *
- * <p>This class provides an atomic commit method to the user.
+ * <p>此类为用户提供了原子提交方法。
  *
  * <ol>
- *   <li>Before calling {@link FileStoreCommitImpl#commit}, if user cannot determine if this commit
- *       is done before, user should first call {@link FileStoreCommitImpl#filterCommitted}.
- *   <li>Before committing, it will first check for conflicts by checking if all files to be removed
- *       currently exists, and if modified files have overlapping key ranges with existing files.
- *   <li>After that it use the external {@link FileStoreCommitImpl#lock} (if provided) or the atomic
- *       rename of the file system to ensure atomicity.
- *   <li>If commit fails due to conflicts or exception it tries its best to clean up and aborts.
- *   <li>If atomic rename fails it tries again after reading the latest snapshot from step 2.
+ *   <li>在调用 {@link FileStoreCommitImpl#commit} 之前，如果用户不能确定此提交是否已完成，
+ *       用户应首先调用 {@link FileStoreCommitImpl#filterCommitted}。
+ *   <li>在提交之前，它会先通过检查所有要删除的文件是否存在，以及修改后的文件是否与现有文件有重叠的键范围来检查冲突。
+ *   <li>之后，它使用外部的 {@link FileStoreCommitImpl#lock}（如果提供）或文件系统的原子重命名来确保原子性。
+ *   <li>如果由于冲突或异常导致提交失败，它会尽最大努力清理并中止。
+ *   <li>如果原子重命名失败，它将在步骤 2 读取最新快照后重试。
  * </ol>
  *
- * <p>NOTE: If you want to modify this class, any exception during commit MUST NOT BE IGNORED. They
- * must be thrown to restart the job. It is recommended to run FileStoreCommitTest thousands of
- * times to make sure that your changes are correct.
+ * <p>注意：如果您想修改此类，提交期间的任何异常都不能被忽略。它们必须被抛出以重新启动作业。建议运行 FileStoreCommitTest 数千次以确保您的更改是正确的。
  */
 public class FileStoreCommitImpl implements FileStoreCommit {
 
@@ -213,10 +209,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     }
 
     @Override
-    public void commit(
-            ManifestCommittable committable,
+    public void commit(ManifestCommittable committable,    // 数据变更记录
             Map<String, String> properties,
             boolean checkAppendFiles) {
+
         if (LOG.isDebugEnabled()) {
             LOG.debug("Ready to commit\n" + committable.toString());
         }
@@ -228,47 +224,49 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         Long safeLatestSnapshotId = null;
         List<SimpleFileEntry> baseEntries = new ArrayList<>();
 
+        // 整理收集变更信息
         List<ManifestEntry> appendTableFiles = new ArrayList<>();
         List<ManifestEntry> appendChangelog = new ArrayList<>();
         List<ManifestEntry> compactTableFiles = new ArrayList<>();
         List<ManifestEntry> compactChangelog = new ArrayList<>();
         List<IndexManifestEntry> appendHashIndexFiles = new ArrayList<>();
         List<IndexManifestEntry> compactDvIndexFiles = new ArrayList<>();
-        collectChanges(
-                committable.fileCommittables(),
+
+        collectChanges(committable.fileCommittables(),
                 appendTableFiles,
                 appendChangelog,
                 compactTableFiles,
                 compactChangelog,
                 appendHashIndexFiles,
                 compactDvIndexFiles);
+
         try {
             List<SimpleFileEntry> appendSimpleEntries = SimpleFileEntry.from(appendTableFiles);
-            if (!ignoreEmptyCommit
-                    || !appendTableFiles.isEmpty()
+
+            if (!ignoreEmptyCommit || !appendTableFiles.isEmpty()
                     || !appendChangelog.isEmpty()
                     || !appendHashIndexFiles.isEmpty()) {
-                // Optimization for common path.
-                // Step 1:
-                // Read manifest entries from changed partitions here and check for conflicts.
-                // If there are no other jobs committing at the same time,
-                // we can skip conflict checking in tryCommit method.
-                // This optimization is mainly used to decrease the number of times we read from
-                // files.
-                latestSnapshot = snapshotManager.latestSnapshot(branchName);
+
+                // 常见路径的优化。
+                // 第一步：
+                // 从更改的分区中读取 manifest entrie 并检查冲突。
+                // 如果没有其他作业同时提交，
+                // 我们可以在 tryCommit 方法中跳过冲突检查。
+                // 此优化主要用于减少读取文件的次数。
+                latestSnapshot = snapshotManager.latestSnapshot(branchName);  //
+
                 if (latestSnapshot != null && checkAppendFiles) {
-                    // it is possible that some partitions only have compact changes,
-                    // so we need to contain all changes
-                    baseEntries.addAll(
-                            readAllEntriesFromChangedPartitions(
+                    // 可能有些分区只有压缩变化，
+                    // 所以我们需要包含所有变化。
+                    baseEntries.addAll(readAllEntriesFromChangedPartitions(
                                     latestSnapshot, appendTableFiles, compactTableFiles));
-                    noConflictsOrFail(
-                            latestSnapshot.commitUser(), baseEntries, appendSimpleEntries);
+
+                    noConflictsOrFail(latestSnapshot.commitUser(), baseEntries, appendSimpleEntries);
+
                     safeLatestSnapshotId = latestSnapshot.id();
                 }
 
-                attempts +=
-                        tryCommit(
+                attempts += tryCommit(
                                 appendTableFiles,
                                 appendChangelog,
                                 appendHashIndexFiles,
@@ -302,18 +300,17 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     safeLatestSnapshotId += 1;
                 }
 
-                attempts +=
-                        tryCommit(
-                                compactTableFiles,
-                                compactChangelog,
-                                compactDvIndexFiles,
-                                committable.identifier(),
-                                committable.watermark(),
-                                committable.logOffsets(),
-                                Snapshot.CommitKind.COMPACT,
-                                hasConflictChecked(safeLatestSnapshotId),
-                                branchName,
-                                null);
+                attempts += tryCommit(
+                    compactTableFiles,
+                    compactChangelog,
+                    compactDvIndexFiles,
+                    committable.identifier(),
+                    committable.watermark(),
+                    committable.logOffsets(),
+                    Snapshot.CommitKind.COMPACT,
+                    hasConflictChecked(safeLatestSnapshotId),
+                    branchName,
+                    null);
                 generatedSnapshot += 1;
             }
         } finally {
@@ -584,10 +581,11 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             List<IndexManifestEntry> compactDvIndexFiles) {
         for (CommitMessage message : commitMessages) {
             CommitMessageImpl commitMessage = (CommitMessageImpl) message;
-            commitMessage
-                    .newFilesIncrement()
+
+            commitMessage.newFilesIncrement()
                     .newFiles()
                     .forEach(m -> appendTableFiles.add(makeEntry(FileKind.ADD, commitMessage, m)));
+
             commitMessage
                     .newFilesIncrement()
                     .deletedFiles()
@@ -757,10 +755,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             ConflictCheck conflictCheck,
             String branchName,
             @Nullable String newStatsFileName) {
-        long newSnapshotId =
-                latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
-        Path newSnapshotPath =
-                branchName.equals(DEFAULT_MAIN_BRANCH)
+
+        long newSnapshotId = latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
+
+        Path newSnapshotPath = branchName.equals(DEFAULT_MAIN_BRANCH)
                         ? snapshotManager.snapshotPath(newSnapshotId)
                         : snapshotManager.branchSnapshotPath(branchName, newSnapshotId);
 
@@ -789,14 +787,14 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         List<ManifestFileMeta> oldMetas = new ArrayList<>();
         List<ManifestFileMeta> newMetas = new ArrayList<>();
         List<ManifestFileMeta> changelogMetas = new ArrayList<>();
+
         try {
             long previousTotalRecordCount = 0L;
             Long currentWatermark = watermark;
             String previousIndexManifest = null;
             if (latestSnapshot != null) {
                 previousTotalRecordCount = latestSnapshot.totalRecordCount(scan);
-                List<ManifestFileMeta> previousManifests =
-                        latestSnapshot.dataManifests(manifestList);
+                List<ManifestFileMeta> previousManifests = latestSnapshot.dataManifests(manifestList);
                 // read all previous manifest files
                 oldMetas.addAll(previousManifests);
                 // read the last snapshot to complete the bucket's offsets when logOffsets does not
@@ -807,27 +805,24 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 }
                 Long latestWatermark = latestSnapshot.watermark();
                 if (latestWatermark != null) {
-                    currentWatermark =
-                            currentWatermark == null
-                                    ? latestWatermark
+                    currentWatermark = currentWatermark == null ? latestWatermark
                                     : Math.max(currentWatermark, latestWatermark);
                 }
                 previousIndexManifest = latestSnapshot.indexManifest();
             }
             // merge manifest files with changes
-            newMetas.addAll(
-                    ManifestFileMeta.merge(
+            newMetas.addAll(ManifestFileMeta.merge(
                             oldMetas,
                             manifestFile,
                             manifestTargetSize.getBytes(),
                             manifestMergeMinCount,
                             manifestFullCompactionSize.getBytes(),
                             partitionType));
+
             previousChangesListName = manifestList.write(newMetas);
 
             // the added records subtract the deleted records from
-            long deltaRecordCount =
-                    Snapshot.recordCountAdd(tableFiles) - Snapshot.recordCountDelete(tableFiles);
+            long deltaRecordCount = Snapshot.recordCountAdd(tableFiles) - Snapshot.recordCountDelete(tableFiles);
             long totalRecordCount = previousTotalRecordCount + deltaRecordCount;
 
             // write new changes into manifest files

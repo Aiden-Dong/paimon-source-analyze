@@ -68,7 +68,7 @@ import static org.apache.paimon.CoreOptions.ExpireExecutionMode;
 import static org.apache.paimon.table.sink.BatchWriteBuilder.COMMIT_IDENTIFIER;
 import static org.apache.paimon.utils.Preconditions.checkState;
 
-/** An abstraction layer above {@link FileStoreCommit} to provide snapshot commit and expiration. */
+/** {@link FileStoreCommit} 之上的抽象层，用于提供快照提交和过期管理。 */
 public class TableCommitImpl implements InnerTableCommit {
     private static final Logger LOG = LoggerFactory.getLogger(TableCommitImpl.class);
 
@@ -187,8 +187,7 @@ public class TableCommitImpl implements InnerTableCommit {
                         .collect(Collectors.toList()));
     }
 
-    private ManifestCommittable createManifestCommittable(
-            long identifier, List<CommitMessage> commitMessages) {
+    private ManifestCommittable createManifestCommittable(long identifier, List<CommitMessage> commitMessages) {
         ManifestCommittable committable = new ManifestCommittable(identifier);
         for (CommitMessage commitMessage : commitMessages) {
             committable.addFileCommittable(commitMessage);
@@ -211,9 +210,7 @@ public class TableCommitImpl implements InnerTableCommit {
         } else {
             ManifestCommittable committable;
             if (committables.size() > 1) {
-                throw new RuntimeException(
-                        "Multiple committables appear in overwrite mode, this may be a bug, please report it: "
-                                + committables);
+                throw new RuntimeException("Multiple committables appear in overwrite mode, this may be a bug, please report it: " + committables);
             } else if (committables.size() == 1) {
                 committable = committables.get(0);
             } else {

@@ -92,8 +92,7 @@ public class SparkTable
 
     @Override
     public Transform[] partitioning() {
-        return table.partitionKeys().stream()
-                .map(FieldReference::apply)
+        return table.partitionKeys().stream().map(FieldReference::apply)
                 .map(IdentityTransform::apply)
                 .toArray(Transform[]::new);
     }

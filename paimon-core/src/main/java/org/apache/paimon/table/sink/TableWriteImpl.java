@@ -132,7 +132,9 @@ public class TableWriteImpl<T> implements InnerTableWrite, Restorable<List<State
 
     @Nullable
     public SinkRecord writeAndReturn(InternalRow row) throws Exception {
+        // 获取数据类型
         RowKind rowKind = RowKindGenerator.getRowKind(rowKindGenerator, row);
+
         if (ignoreDelete && rowKind.isRetract()) {
             return null;
         }

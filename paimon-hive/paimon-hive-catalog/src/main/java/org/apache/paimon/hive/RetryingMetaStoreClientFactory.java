@@ -143,17 +143,15 @@ public class RetryingMetaStoreClientFactory {
                     .build();
 
     public IMetaStoreClient createClient(HiveConf hiveConf, String clientClassName) {
-        Map<Class<?>[], HiveMetastoreProxySupplier> suppliers =
-                new LinkedHashMap<>(PROXY_SUPPLIERS);
+        Map<Class<?>[], HiveMetastoreProxySupplier> suppliers = new LinkedHashMap<>(PROXY_SUPPLIERS);
+
         if (HiveMetaStoreClient.class.getName().equals(clientClassName)) {
             suppliers.putAll(PROXY_SUPPLIERS_SHADED);
         }
 
-        RuntimeException failToCreate =
-                new RuntimeException(
-                        "Failed to create the desired metastore client (class name: "
-                                + clientClassName
-                                + ")");
+        RuntimeException failToCreate = new RuntimeException(
+                        "Failed to create the desired metastore client (class name: " + clientClassName + ")");
+
         for (Entry<Class<?>[], HiveMetastoreProxySupplier> entry : suppliers.entrySet()) {
             Class<?>[] classes = entry.getKey();
             try {

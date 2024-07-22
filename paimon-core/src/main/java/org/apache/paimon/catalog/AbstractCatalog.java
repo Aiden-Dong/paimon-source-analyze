@@ -106,8 +106,7 @@ public abstract class AbstractCatalog implements Catalog {
             return defaultLockFactory();
         }
 
-        return Optional.of(
-                FactoryUtil.discoverFactory(
+        return Optional.of(FactoryUtil.discoverFactory(
                         AbstractCatalog.class.getClassLoader(), CatalogLockFactory.class, lock));
     }
 
