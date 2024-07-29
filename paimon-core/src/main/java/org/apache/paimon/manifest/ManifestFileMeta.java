@@ -155,22 +155,21 @@ public class ManifestFileMeta {
         List<ManifestFileMeta> newMetas = new ArrayList<>();
 
         try {
-            Optional<List<ManifestFileMeta>> fullCompacted =
-                    tryFullCompaction(
+            Optional<List<ManifestFileMeta>> fullCompacted = tryFullCompaction(
                             input,
                             newMetas,
                             manifestFile,
                             suggestedMetaSize,
                             manifestFullCompactionSize,
                             partitionType);
-            return fullCompacted.orElseGet(
-                    () ->
-                            tryMinorCompaction(
+
+            return fullCompacted.orElseGet(() -> tryMinorCompaction(
                                     input,
                                     newMetas,
                                     manifestFile,
                                     suggestedMetaSize,
                                     suggestedMinMetaCount));
+
         } catch (Throwable e) {
             // exception occurs, clean up and rethrow
             for (ManifestFileMeta manifest : newMetas) {
@@ -342,8 +341,7 @@ public class ManifestFileMeta {
 
         // 2.3. merge
 
-        RollingFileWriter<ManifestEntry, ManifestFileMeta> writer =
-                manifestFile.createRollingWriter();
+        RollingFileWriter<ManifestEntry, ManifestFileMeta> writer = manifestFile.createRollingWriter();
         Exception exception = null;
         try {
 

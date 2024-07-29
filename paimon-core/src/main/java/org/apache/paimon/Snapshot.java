@@ -401,7 +401,8 @@ public class Snapshot {
     }
 
     /**
-     * Return record count of all changes occurred in this snapshot given the scan.
+     * 从当前的snapshot 中获取所有有效的 manifest 文件列表
+     * 从 manifest 中获取当前所有的记录数
      *
      * @param scan a {@link FileStoreScan} instance used for count of reading files at snapshot.
      * @return total record count of Snapshot.

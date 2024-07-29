@@ -268,10 +268,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 }
 
                 attempts += tryCommit(
-                                appendTableFiles,
-                                appendChangelog,
-                                appendHashIndexFiles,
-                                committable.identifier(),
+                                appendTableFiles,            // 新增 sst
+                                appendChangelog,             // 新增 changelog
+                                appendHashIndexFiles,        // 新增 index
+                                committable.identifier(),    // 提交标识
                                 committable.watermark(),
                                 committable.logOffsets(),
                                 Snapshot.CommitKind.APPEND,
@@ -284,6 +284,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             if (!compactTableFiles.isEmpty()
                     || !compactChangelog.isEmpty()
                     || !compactDvIndexFiles.isEmpty()) {
+
                 // 常见路径的优化。
                 // 第二步：
                 // 将 appendChanges 添加到上面读取的清单条目中，并检查冲突。
@@ -291,15 +292,15 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 // 我们可以在 tryCommit 方法中跳过冲突检查。
                 // 此优化主要用于减少读取文件的次数。
                 if (safeLatestSnapshotId != null) {
-                    baseEntries.addAll(appendSimpleEntries);
-                    noConflictsOrFail(
-                            latestSnapshot.commitUser(),
-                            baseEntries,
-                            SimpleFileEntry.from(compactTableFiles));
+                    baseEntries.addAll(appendSimpleEntries);  // 新增的SST 文件
+
+                    // 检查 baseEntries 跟 compaction 是否冲突
+                    noConflictsOrFail(latestSnapshot.commitUser(), baseEntries, SimpleFileEntry.from(compactTableFiles));
                     // assume this compact commit follows just after the append commit created above
                     safeLatestSnapshotId += 1;
                 }
 
+                // 重新提交compaction 类型
                 attempts += tryCommit(
                     compactTableFiles,
                     compactChangelog,
@@ -313,6 +314,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     null);
                 generatedSnapshot += 1;
             }
+
         } finally {
             long commitDuration = (System.nanoTime() - started) / 1_000_000;
             if (this.commitMetrics != null) {
@@ -353,12 +355,9 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             Map<String, String> partition,
             ManifestCommittable committable,
             Map<String, String> properties) {
+
         if (LOG.isDebugEnabled()) {
-            LOG.debug(
-                    "Ready to overwrite partition {}\nManifestCommittable: {}\nProperties: {}",
-                    partition,
-                    committable,
-                    properties);
+            LOG.debug("Ready to overwrite partition {}\nManifestCommittable: {}\nProperties: {}", partition, committable, properties);
         }
 
         long started = System.nanoTime();
@@ -637,20 +636,24 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     }
 
     private int tryCommit(
-            List<ManifestEntry> tableFiles,
-            List<ManifestEntry> changelogFiles,
-            List<IndexManifestEntry> indexFiles,
-            long identifier,
+            List<ManifestEntry> tableFiles,       // 新增 sst 文件
+            List<ManifestEntry> changelogFiles,   // 新增 changelog 文件
+            List<IndexManifestEntry> indexFiles,  // 新增 index 文件
+            long identifier,                      // 提交标识
             @Nullable Long watermark,
             Map<Integer, Long> logOffsets,
             Snapshot.CommitKind commitKind,
             ConflictCheck conflictCheck,
             String branchName,
             @Nullable String statsFileName) {
-        int cnt = 0;
+
+        int cnt = 0;  // 重试次数
+
         while (true) {
-            Snapshot latestSnapshot = snapshotManager.latestSnapshot(branchName);
+            Snapshot latestSnapshot = snapshotManager.latestSnapshot(branchName);  // 获取最终的 snapshot id
+
             cnt++;
+
             if (tryCommitOnce(
                     tableFiles,
                     changelogFiles,
@@ -745,8 +748,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             String branchName,
             @Nullable String newStatsFileName) {
 
+        // 新增 snapshot = last snapshot + 1
         long newSnapshotId = latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
 
+        // 定义 snapshot path
         Path newSnapshotPath = branchName.equals(DEFAULT_MAIN_BRANCH)
                         ? snapshotManager.snapshotPath(newSnapshotId)
                         : snapshotManager.branchSnapshotPath(branchName, newSnapshotId);
@@ -773,7 +778,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         String newChangesListName = null;
         String changelogListName = null;
         String newIndexManifest = null;
-        List<ManifestFileMeta> oldMetas = new ArrayList<>();
+        List<ManifestFileMeta> oldMetas = new ArrayList<>();  // 历史 manifest 文件信息
         List<ManifestFileMeta> newMetas = new ArrayList<>();
         List<ManifestFileMeta> changelogMetas = new ArrayList<>();
 
@@ -781,25 +786,40 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             long previousTotalRecordCount = 0L;
             Long currentWatermark = watermark;
             String previousIndexManifest = null;
+
+
+            // 记录历史 manifest 文件
             if (latestSnapshot != null) {
+                // 获取提交之前的总的数据量
                 previousTotalRecordCount = latestSnapshot.totalRecordCount(scan);
+
+                // 读取之前所有有效的 manifest 文件
                 List<ManifestFileMeta> previousManifests = latestSnapshot.dataManifests(manifestList);
+
                 // read all previous manifest files
                 oldMetas.addAll(previousManifests);
-                // read the last snapshot to complete the bucket's offsets when logOffsets does not
-                // contain all buckets
+
+                // read the last snapshot to complete the bucket's offsets when logOffsets does not contain all buckets
+                // log 文件
                 Map<Integer, Long> latestLogOffsets = latestSnapshot.logOffsets();
+
                 if (latestLogOffsets != null) {
                     latestLogOffsets.forEach(logOffsets::putIfAbsent);
                 }
+
                 Long latestWatermark = latestSnapshot.watermark();
+
                 if (latestWatermark != null) {
-                    currentWatermark = currentWatermark == null ? latestWatermark
-                                    : Math.max(currentWatermark, latestWatermark);
+                    currentWatermark = currentWatermark == null ? latestWatermark : Math.max(currentWatermark, latestWatermark);
                 }
+
+                // 索引 manifest
                 previousIndexManifest = latestSnapshot.indexManifest();
             }
+
+
             // merge manifest files with changes
+            // 合并历史 Manifest 文件与新的
             newMetas.addAll(ManifestFileMeta.merge(
                             oldMetas,
                             manifestFile,
@@ -808,13 +828,14 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                             manifestFullCompactionSize.getBytes(),
                             partitionType));
 
+            // 写入一个新的 manifest 文件
             previousChangesListName = manifestList.write(newMetas);
 
-            // the added records subtract the deleted records from
+            // 记录写入后的总的数据量
             long deltaRecordCount = Snapshot.recordCountAdd(tableFiles) - Snapshot.recordCountDelete(tableFiles);
             long totalRecordCount = previousTotalRecordCount + deltaRecordCount;
 
-            // write new changes into manifest files
+            // 写入新增的 manifest 文件
             List<ManifestFileMeta> newChangesManifests = manifestFile.write(tableFiles);
             newMetas.addAll(newChangesManifests);
             newChangesListName = manifestList.write(newChangesManifests);
@@ -831,6 +852,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 newIndexManifest = indexManifest;
             }
 
+            // 获取schema信息
             long latestSchemaId = schemaManager.latest(branchName).get().id();
 
             // write new stats or inherit from the previous snapshot
@@ -848,25 +870,25 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 }
             }
 
-            // prepare snapshot file
-            newSnapshot =
-                    new Snapshot(
-                            newSnapshotId,
-                            latestSchemaId,
-                            previousChangesListName,
-                            newChangesListName,
-                            changelogListName,
-                            indexManifest,
-                            commitUser,
-                            identifier,
-                            commitKind,
-                            System.currentTimeMillis(),
-                            logOffsets,
-                            totalRecordCount,
-                            deltaRecordCount,
-                            Snapshot.recordCount(changelogFiles),
-                            currentWatermark,
-                            statsFileName);
+            // 构建一个新的 Snaphsot
+            newSnapshot = new Snapshot(
+                newSnapshotId,
+                latestSchemaId,
+                previousChangesListName,
+                newChangesListName,
+                changelogListName,
+                indexManifest,
+                commitUser,
+                identifier,
+                commitKind,
+                System.currentTimeMillis(),
+                logOffsets,
+                totalRecordCount,
+                deltaRecordCount,
+                Snapshot.recordCount(changelogFiles),
+                currentWatermark,
+                statsFileName);
+
         } catch (Throwable e) {
             // fails when preparing for commit, we should clean up
             cleanUpTmpManifests(
@@ -889,20 +911,20 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     e);
         }
 
+        // 记录 snapshot 信息
         boolean success;
         try {
-            Callable<Boolean> callable =
-                    () -> {
-                        boolean committed =
-                                fileIO.writeFileUtf8(newSnapshotPath, newSnapshot.toJson());
-                        if (committed) {
-                            snapshotManager.commitLatestHint(newSnapshotId, branchName);
-                        }
-                        return committed;
-                    };
+
+            Callable<Boolean> callable = () -> {
+                boolean committed = fileIO.writeFileUtf8(newSnapshotPath, newSnapshot.toJson());
+                if (committed) {
+                    snapshotManager.commitLatestHint(newSnapshotId, branchName);
+                }
+                return committed;
+            };
+
             if (lock != null) {
-                success =
-                        lock.runWithLock(
+                success = lock.runWithLock(
                                 () ->
                                         // fs.rename may not returns false if target file
                                         // already exists, or even not atomic
