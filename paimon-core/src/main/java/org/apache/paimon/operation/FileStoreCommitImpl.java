@@ -221,7 +221,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         int generatedSnapshot = 0;
         int attempts = 0;
         Snapshot latestSnapshot = null;
-        Long safeLatestSnapshotId = null;
+        Long safeLatestSnapshotId = null;    // 当前安全可用的 laters - snapshot (经过安全校验以后)
         List<SimpleFileEntry> baseEntries = new ArrayList<>();
 
         // 整理收集变更信息
@@ -241,6 +241,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 compactDvIndexFiles);
 
         try {
+            // 当前新增的 SST 文件集合
             List<SimpleFileEntry> appendSimpleEntries = SimpleFileEntry.from(appendTableFiles);
 
             if (!ignoreEmptyCommit || !appendTableFiles.isEmpty()
@@ -253,17 +254,17 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 // 如果没有其他作业同时提交，
                 // 我们可以在 tryCommit 方法中跳过冲突检查。
                 // 此优化主要用于减少读取文件的次数。
-                latestSnapshot = snapshotManager.latestSnapshot(branchName);  //
+                latestSnapshot = snapshotManager.latestSnapshot(branchName);  //  从 snapshot 目录 last 文件中获取最后一个 snapshot
 
                 if (latestSnapshot != null && checkAppendFiles) {
-                    // 可能有些分区只有压缩变化，
-                    // 所以我们需要包含所有变化。
-                    baseEntries.addAll(readAllEntriesFromChangedPartitions(
-                                    latestSnapshot, appendTableFiles, compactTableFiles));
 
+                    // 获取最后一次 snapshot 当dui前变更分区下所有有效的SST文件信息
+                    baseEntries.addAll(readAllEntriesFromChangedPartitions(latestSnapshot, appendTableFiles, compactTableFiles));
+
+                    // 检查新增的 SST 文件是否跟base的SST文件冲突
                     noConflictsOrFail(latestSnapshot.commitUser(), baseEntries, appendSimpleEntries);
 
-                    safeLatestSnapshotId = latestSnapshot.id();
+                    safeLatestSnapshotId = latestSnapshot.id();  // 当前安全可用的 laters - snapshot
                 }
 
                 attempts += tryCommit(
@@ -283,13 +284,12 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             if (!compactTableFiles.isEmpty()
                     || !compactChangelog.isEmpty()
                     || !compactDvIndexFiles.isEmpty()) {
-                // Optimization for common path.
-                // Step 2:
-                // Add appendChanges to the manifest entries read above and check for conflicts.
-                // If there are no other jobs committing at the same time,
-                // we can skip conflict checking in tryCommit method.
-                // This optimization is mainly used to decrease the number of times we read from
-                // files.
+                // 常见路径的优化。
+                // 第二步：
+                // 将 appendChanges 添加到上面读取的清单条目中，并检查冲突。
+                // 如果没有其他作业同时提交，
+                // 我们可以在 tryCommit 方法中跳过冲突检查。
+                // 此优化主要用于减少读取文件的次数。
                 if (safeLatestSnapshotId != null) {
                     baseEntries.addAll(appendSimpleEntries);
                     noConflictsOrFail(
@@ -336,8 +336,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             long commitDuration,
             int generatedSnapshots,
             int attempts) {
-        CommitStats commitStats =
-                new CommitStats(
+
+        CommitStats commitStats = new CommitStats(
                         appendTableFiles,
                         appendChangelogFiles,
                         compactTableFiles,
@@ -383,9 +383,9 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             StringBuilder warnMessage =
                     new StringBuilder(
                             "Overwrite mode currently does not commit any changelog.\n"
-                                    + "Please make sure that the partition you're overwriting "
-                                    + "is not being consumed by a streaming reader.\n"
+                                    + "Please make sure that the partition you're overwriting  is not being consumed by a streaming reader.\n"
                                     + "Ignored changelog files are:\n");
+
             for (ManifestEntry entry : appendChangelog) {
                 warnMessage.append("  * ").append(entry.toString()).append("\n");
             }
@@ -404,8 +404,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     // in dynamic mode, if there is no changes to commit, no data will be deleted
                     skipOverwrite = true;
                 } else {
-                    partitionFilter =
-                            appendTableFiles.stream()
+                    partitionFilter = appendTableFiles.stream()
                                     .map(ManifestEntry::partition)
                                     .distinct()
                                     // partition filter is built from new data's partitions
@@ -424,11 +423,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     for (ManifestEntry entry : appendTableFiles) {
                         if (!partitionFilter.test(entry.partition())) {
                             throw new IllegalArgumentException(
-                                    "Trying to overwrite partition "
-                                            + partition
-                                            + ", but the changes in "
-                                            + pathFactory.getPartitionString(entry.partition())
-                                            + " does not belong to this partition");
+                                    "Trying to overwrite partition " + partition + ", but the changes in "
+                                            + pathFactory.getPartitionString(entry.partition()) + " does not belong to this partition");
                         }
                     }
                 }
@@ -482,17 +478,13 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         Preconditions.checkArgument(!partitions.isEmpty(), "Partitions list cannot be empty.");
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug(
-                    "Ready to drop partitions {}",
+            LOG.debug("Ready to drop partitions {}",
                     partitions.stream().map(Objects::toString).collect(Collectors.joining(",")));
         }
 
         Predicate partitionFilter =
                 partitions.stream()
-                        .map(
-                                partition ->
-                                        createPartitionPredicate(
-                                                partition, partitionType, partitionDefaultName))
+                        .map(partition -> createPartitionPredicate(partition, partitionType, partitionDefaultName))
                         .reduce(PredicateBuilder::or)
                         .orElseThrow(() -> new RuntimeException("Failed to get partition filter."));
 
@@ -523,9 +515,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             DataFilePathFactory pathFactory =
                     factoryMap.computeIfAbsent(
                             Pair.of(message.partition(), message.bucket()),
-                            k ->
-                                    this.pathFactory.createDataFilePathFactory(
-                                            k.getKey(), k.getValue()));
+                            k -> this.pathFactory.createDataFilePathFactory(k.getKey(), k.getValue()));
             CommitMessageImpl commitMessage = (CommitMessageImpl) message;
             List<DataFileMeta> toDelete = new ArrayList<>();
             toDelete.addAll(commitMessage.newFilesIncrement().newFiles());
@@ -589,29 +579,28 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             commitMessage
                     .newFilesIncrement()
                     .deletedFiles()
-                    .forEach(
-                            m ->
-                                    appendTableFiles.add(
-                                            makeEntry(FileKind.DELETE, commitMessage, m)));
+                    .forEach(m -> appendTableFiles.add(makeEntry(FileKind.DELETE, commitMessage, m)));
+
             commitMessage
                     .newFilesIncrement()
                     .changelogFiles()
                     .forEach(m -> appendChangelog.add(makeEntry(FileKind.ADD, commitMessage, m)));
+
             commitMessage
                     .compactIncrement()
                     .compactBefore()
-                    .forEach(
-                            m ->
-                                    compactTableFiles.add(
-                                            makeEntry(FileKind.DELETE, commitMessage, m)));
+                    .forEach(m -> compactTableFiles.add(makeEntry(FileKind.DELETE, commitMessage, m)));
+
             commitMessage
                     .compactIncrement()
                     .compactAfter()
                     .forEach(m -> compactTableFiles.add(makeEntry(FileKind.ADD, commitMessage, m)));
+
             commitMessage
                     .compactIncrement()
                     .changelogFiles()
                     .forEach(m -> compactChangelog.add(makeEntry(FileKind.ADD, commitMessage, m)));
+
             commitMessage
                     .indexIncrement()
                     .newIndexFiles()
@@ -634,9 +623,9 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                                                         commitMessage.bucket(),
                                                         f));
                                         break;
+
                                     default:
-                                        throw new RuntimeException(
-                                                "Unknown index type: " + f.indexType());
+                                        throw new RuntimeException("Unknown index type: " + f.indexType());
                                 }
                             });
         }
@@ -974,8 +963,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     }
 
     @SafeVarargs
-    private final List<SimpleFileEntry> readAllEntriesFromChangedPartitions(
-            Snapshot snapshot, List<ManifestEntry>... changes) {
+    private final List<SimpleFileEntry> readAllEntriesFromChangedPartitions(Snapshot snapshot, List<ManifestEntry>... changes) {
+
         List<BinaryRow> changedPartitions =
                 Arrays.stream(changes)
                         .flatMap(Collection::stream)
@@ -983,8 +972,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                         .distinct()
                         .collect(Collectors.toList());
         try {
-            return scan.withSnapshot(snapshot)
-                    .withPartitionFilter(changedPartitions)
+            return scan.withSnapshot(snapshot)  // 获取当前 snapshot
+                    .withPartitionFilter(changedPartitions)  // 获取当前影响分区
                     .readSimpleEntries();
         } catch (Throwable e) {
             throw new RuntimeException("Cannot read manifest entries from changed partitions.", e);
@@ -1001,12 +990,16 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
     private void noConflictsOrFail(
             String baseCommitUser,
-            List<SimpleFileEntry> baseEntries,
-            List<SimpleFileEntry> changes) {
+            List<SimpleFileEntry> baseEntries,      // 当前有效的SST文件
+            List<SimpleFileEntry> changes) {        // 当前新增的 SST 文件
+
+        // 当前所有的 SST 综合
         List<SimpleFileEntry> allEntries = new ArrayList<>(baseEntries);
         allEntries.addAll(changes);
 
         Collection<SimpleFileEntry> mergedEntries;
+
+        // TODO-1 :
         try {
             // merge manifest entries and also check if the files we want to delete are still there
             mergedEntries = FileEntry.mergeEntries(allEntries);
@@ -1029,19 +1022,15 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             return;
         }
 
-        // group entries by partitions, buckets and levels
+        // TODO-2 : level >=1 的所有 SST 是否key 范围有问题
         Map<LevelIdentifier, List<SimpleFileEntry>> levels = new HashMap<>();
         for (SimpleFileEntry entry : mergedEntries) {
             int level = entry.level();
             if (level >= 1) {
-                levels.computeIfAbsent(
-                                new LevelIdentifier(entry.partition(), entry.bucket(), level),
-                                lv -> new ArrayList<>())
-                        .add(entry);
+                levels.computeIfAbsent(new LevelIdentifier(entry.partition(), entry.bucket(), level), lv -> new ArrayList<>()).add(entry);
             }
         }
 
-        // check for all LSM level >= 1, key ranges of files do not intersect
         for (List<SimpleFileEntry> entries : levels.values()) {
             entries.sort((a, b) -> keyComparator.compare(a.minKey(), b.minKey()));
             for (int i = 0; i + 1 < entries.size(); i++) {
