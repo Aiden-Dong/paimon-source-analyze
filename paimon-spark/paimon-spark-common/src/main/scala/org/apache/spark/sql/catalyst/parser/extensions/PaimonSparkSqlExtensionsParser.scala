@@ -57,10 +57,12 @@ class PaimonSparkSqlExtensionsParser(delegate: ParserInterface)
   /** Parses a string to a LogicalPlan. */
   override def parsePlan(sqlText: String): LogicalPlan = {
     val sqlTextAfterSubstitution = substitutor.substitute(sqlText)
+    // 只解析命令类型
     if (isCommand(sqlTextAfterSubstitution)) {
       parse(sqlTextAfterSubstitution)(parser => astBuilder.visit(parser.singleStatement()))
         .asInstanceOf[LogicalPlan]
     } else {
+      // 否则走 Spark 默认解析逻辑
       delegate.parsePlan(sqlText)
     }
   }

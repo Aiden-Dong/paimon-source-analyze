@@ -31,17 +31,19 @@ class PaimonSparkSessionExtensions extends (SparkSessionExtensions => Unit) {
 
   override def apply(extensions: SparkSessionExtensions): Unit = {
     // parser extensions
+    // 扩展 SQL 解析器
     extensions.injectParser { case (_, parser) => new PaimonSparkSqlExtensionsParser(parser) }
 
     // analyzer extensions
-    extensions.injectResolutionRule(spark => new PaimonAnalysis(spark))
+    extensions.injectResolutionRule(spark => new PaimonAnalysis(spark))                // 解析生成逻辑树
+
     extensions.injectResolutionRule(spark => PaimonProcedureResolver(spark))
     extensions.injectResolutionRule(spark => PaimonIncompatibleResolutionRules(spark))
 
     extensions.injectPostHocResolutionRule(spark => PaimonPostHocResolutionRules(spark))
     extensions.injectPostHocResolutionRule(spark => PaimonIncompatiblePHRRules(spark))
 
-    extensions.injectPostHocResolutionRule(_ => PaimonUpdateTable)
+    extensions.injectPostHocResolutionRule(_ => PaimonUpdateTable)             //
     extensions.injectPostHocResolutionRule(_ => PaimonDeleteTable)
     extensions.injectPostHocResolutionRule(spark => PaimonMergeInto(spark))
 
