@@ -44,24 +44,25 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * This file is the entrance to all data committed at some specific time point.
+ * 此文件是所有在特定时间点提交的数据的入口。
  *
- * <p>Versioned change list:
+ * <p>版本变更列表：
  *
  * <ul>
- *   <li>Version 1: Initial version for paimon <= 0.2. There is no "version" field in json file.
- *   <li>Version 2: Introduced in paimon 0.3. Add "version" field and "changelogManifestList" field.
- *   <li>Version 3: Introduced in paimon 0.4. Add "baseRecordCount" field, "deltaRecordCount" field
- *       and "changelogRecordCount" field.
+ *   <li>版本 1：用于 paimon <= 0.2 的初始版本。JSON 文件中没有 "version" 字段。
+ *   <li>版本 2：在 paimon 0.3 中引入。添加 "version" 字段和 "changelogManifestList" 字段。
+ *   <li>版本 3：在 paimon 0.4 中引入。添加 "baseRecordCount" 字段、"deltaRecordCount" 字段
+ *       和 "changelogRecordCount" 字段。
  * </ul>
  *
- * <p>Unversioned change list:
+ * <p>未版本化变更列表：
  *
  * <ul>
- *   <li>Since paimon 0.2 and paimon 0.3, commitIdentifier is changed from a String to a long value.
- *       For paimon < 0.2, only Flink connectors have paimon sink and they use checkpointId as
- *       commitIdentifier (which is a long value). Json can automatically perform type conversion so
- *       there is no compatibility issue.
+ *   <li>
+ *     自 paimon 0.2 和 paimon 0.3 起，commitIdentifier 的类型从 String 改为 long 值。
+ *       对于 paimon < 0.2，只有 Flink 连接器具有 paimon 接收器，它们使用 checkpointId 作为
+ *       commitIdentifier（这是一个 long 值）。JSON 可以自动执行类型转换，因此没有兼容性问题。
+ *   </li>
  * </ul>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)

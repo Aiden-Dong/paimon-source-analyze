@@ -37,8 +37,8 @@ class PaimonSparkSessionExtensions extends (SparkSessionExtensions => Unit) {
     // analyzer extensions
     extensions.injectResolutionRule(spark => new PaimonAnalysis(spark))                // 解析生成逻辑树
 
-    extensions.injectResolutionRule(spark => PaimonProcedureResolver(spark))
-    extensions.injectResolutionRule(spark => PaimonIncompatibleResolutionRules(spark))
+    extensions.injectResolutionRule(spark => PaimonProcedureResolver(spark))            // 对 producer call 进行处理
+    extensions.injectResolutionRule(spark => PaimonIncompatibleResolutionRules(spark))   // 对 paimon 函数进行处理
 
     extensions.injectPostHocResolutionRule(spark => PaimonPostHocResolutionRules(spark))
     extensions.injectPostHocResolutionRule(spark => PaimonIncompatiblePHRRules(spark))

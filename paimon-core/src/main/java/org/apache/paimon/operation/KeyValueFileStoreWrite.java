@@ -178,9 +178,12 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
                     restoreFiles);
         }
 
-        KeyValueFileWriterFactory writerFactory =
-                writerFactoryBuilder.build(partition, bucket, options);
+        // 基于当前的 partition, bucket 创建 KeyValueFileWriterFactory
+        KeyValueFileWriterFactory writerFactory = writerFactoryBuilder.build(partition, bucket, options);
+
+        // 获取 key 比较器
         Comparator<InternalRow> keyComparator = keyComparatorSupplier.get();
+
         Levels levels = new Levels(keyComparator, restoreFiles, options.numLevels());
         UniversalCompaction universalCompaction =
                 new UniversalCompaction(
@@ -192,6 +195,8 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
                 options.needLookup()
                         ? new ForceUpLevel0Compaction(universalCompaction)
                         : universalCompaction;
+
+        // 构建压缩管理器
         CompactManager compactManager =
                 createCompactManager(
                         partition, bucket, compactStrategy, compactExecutor, levels, dvMaintainer);

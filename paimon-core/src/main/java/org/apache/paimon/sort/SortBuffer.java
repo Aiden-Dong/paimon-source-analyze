@@ -24,7 +24,7 @@ import org.apache.paimon.utils.MutableObjectIterator;
 
 import java.io.IOException;
 
-/** Sort buffer to sort records. */
+/** 用于排序记录的排序缓冲区。 */
 public interface SortBuffer {
 
     int size();
@@ -33,10 +33,10 @@ public interface SortBuffer {
 
     long getOccupancy();
 
-    /** Flush memory, return false if not supported. */
+    // 内存 Flush， 如果不支持则返回 False
     boolean flushMemory() throws IOException;
 
-    /** @return false if the buffer is full. */
+    // 如果 Buffer 满了就返回 False
     boolean write(InternalRow record) throws IOException;
 
     /** @return iterator with sorting. */

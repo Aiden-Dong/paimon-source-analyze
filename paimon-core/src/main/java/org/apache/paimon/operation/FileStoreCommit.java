@@ -30,58 +30,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Commit operation which provides commit and overwrite. */
+
+/**
+ * 提供提交和覆盖功能的提交操作。
+ **/
 public interface FileStoreCommit {
 
-    /** With global lock. */
-    FileStoreCommit withLock(Lock lock);
+    FileStoreCommit withLock(Lock lock);                                           // 全局锁
+    FileStoreCommit ignoreEmptyCommit(boolean ignoreEmptyCommit);                  // 忽略空提交
+    Set<Long> filterCommitted(Set<Long> commitIdentifiers);                        // 找出从失败中恢复时需要重试的提交标识符。
 
-    FileStoreCommit ignoreEmptyCommit(boolean ignoreEmptyCommit);
-
-    /** Find out which commit identifier need to be retried when recovering from the failure. */
-    Set<Long> filterCommitted(Set<Long> commitIdentifiers);
-
-    /** Commit from manifest committable. */
-    void commit(ManifestCommittable committable, Map<String, String> properties);
-
-    /** Commit from manifest committable with checkAppendFiles. */
-    void commit(
-            ManifestCommittable committable,
-            Map<String, String> properties,
+    void commit(ManifestCommittable committable, Map<String, String> properties);   // 从可提交的清单中提交。
+    void commit(ManifestCommittable committable, Map<String, String> properties,     // 从可提交的清单中提交，并检查附加文件。
             boolean checkAppendFiles);
 
     /**
-     * Overwrite from manifest committable and partition.
+     * 从可提交的清单和分区中覆盖。
      *
-     * @param partition A single partition maps each partition key to a partition value. Depending
-     *     on the user-defined statement, the partition might not include all partition keys. Also
-     *     note that this partition does not necessarily equal to the partitions of the newly added
-     *     key-values. This is just the partition to be cleaned up.
+     * @param partition 一个单一分区，将每个分区键映射到一个分区值。根据用户定义的语句，分区可能不包含所有分区键。
+     * 请注意，该分区不一定等于新添加的键值的分区。这只是要清理的分区。
      */
-    void overwrite(
-            Map<String, String> partition,
-            ManifestCommittable committable,
-            Map<String, String> properties);
+    void overwrite(Map<String, String> partition, ManifestCommittable committable, Map<String, String> properties);
 
     /**
-     * Drop multiple partitions. The {@link Snapshot.CommitKind} of generated snapshot is {@link
-     * Snapshot.CommitKind#OVERWRITE}.
+     * 删除多个分区。生成的快照的 {@link Snapshot.CommitKind} 为 {@link Snapshot.CommitKind#OVERWRITE}。
      *
-     * @param partitions A list of partition {@link Map}s. NOTE: cannot be empty!
+     * @param partitions 一个包含多个分区的 {@link Map} 列表。注意：不能为空！
      */
     void dropPartitions(List<Map<String, String>> partitions, long commitIdentifier);
 
     void truncateTable(long commitIdentifier);
 
-    /** Abort an unsuccessful commit. The data files will be deleted. */
+    /**
+     * 终止未成功的提交。数据文件将被删除。
+     **/
     void abort(List<CommitMessage> commitMessages);
 
-    /** With metrics to measure commits. */
+    // 带有用于测量提交的指标。
     FileStoreCommit withMetrics(CommitMetrics metrics);
 
-    /**
-     * Commit new statistics. The {@link Snapshot.CommitKind} of generated snapshot is {@link
-     * Snapshot.CommitKind#ANALYZE}.
+    /*******
+     * 提交新的统计信息。生成的快照的 {@link Snapshot.CommitKind} 是 {@link
+     * Snapshot.CommitKind#ANALYZE}。
      */
     void commitStatistics(Statistics stats, long commitIdentifier);
 

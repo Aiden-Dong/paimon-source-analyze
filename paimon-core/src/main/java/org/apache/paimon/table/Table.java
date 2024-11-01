@@ -42,90 +42,35 @@ public interface Table extends Serializable {
 
     // ================== Table Metadata =====================
 
-    /** A name to identify this table. */
-    String name();
-
-    /** Returns the row type of this table. */
-    RowType rowType();
-
-    /** Partition keys of this table. */
-    List<String> partitionKeys();
-
-    /** Primary keys of this table. */
-    List<String> primaryKeys();
-
-    /** Options of this table. */
-    Map<String, String> options();
-
-    /** Optional comment of this table. */
-    Optional<String> comment();
-
-    /** Optional statistics of this table. */
-    @Experimental
-    Optional<Statistics> statistics();
+    String name();                                    // 表名
+    RowType rowType();                                // 表 Schema
+    List<String> partitionKeys();                     // 分区字段
+    List<String> primaryKeys();                       // 主键
+    Map<String, String> options();                    // 表选项
+    Optional<String> comment();                       // 表注释
+    @Experimental Optional<Statistics> statistics();  // 表指标统计信息
 
     // ================= Table Operations ====================
 
-    /** Copy this table with adding dynamic options. */
-    Table copy(Map<String, String> dynamicOptions);
+    Table copy(Map<String, String> dynamicOptions);                              // 复制此表并添加动态选项
+    @Experimental void rollbackTo(long snapshotId);                              // 将表的状态回滚到特定快照。
+    @Experimental void createTag(String tagName, long fromSnapshotId);           // 从给定快照创建Tag。
+    @Experimental void createTag(String tagName, long fromSnapshotId, Duration timeRetained);
+    @Experimental void createTag(String tagName);                                // 从最后一个 snapshot 中创建 tag
+    @Experimental void createTag(String tagName, Duration timeRetained);
+    @Experimental void deleteTag(String tagName);                                // 删除一个 Tag
+    @Experimental void rollbackTo(String tagName);                               // 将表状态回滚到特定 tag
+    @Experimental void createBranch(String branchName);                          // 创建一个空的 branch
+    @Experimental void createBranch(String branchName, long snapshotId);         // 从给定 snapshot 创建 branch
+    @Experimental void createBranch(String branchName, String tagName);          // 从给定 tag 中创建 branch
+    @Experimental void deleteBranch(String branchName);                          // 删除一个 branch
 
-    /** Rollback table's state to a specific snapshot. */
-    @Experimental
-    void rollbackTo(long snapshotId);
-
-    /** Create a tag from given snapshot. */
-    @Experimental
-    void createTag(String tagName, long fromSnapshotId);
-
-    @Experimental
-    void createTag(String tagName, long fromSnapshotId, Duration timeRetained);
-
-    /** Create a tag from latest snapshot. */
-    @Experimental
-    void createTag(String tagName);
-
-    @Experimental
-    void createTag(String tagName, Duration timeRetained);
-
-    /** Delete a tag by name. */
-    @Experimental
-    void deleteTag(String tagName);
-
-    /** Rollback table's state to a specific tag. */
-    @Experimental
-    void rollbackTo(String tagName);
-
-    /** Create a empty branch. */
-    @Experimental
-    void createBranch(String branchName);
-
-    /** Create a branch from given snapshot. */
-    @Experimental
-    void createBranch(String branchName, long snapshotId);
-
-    /** Create a branch from given tag. */
-    @Experimental
-    void createBranch(String branchName, String tagName);
-
-    /** Delete a branch by branchName. */
-    @Experimental
-    void deleteBranch(String branchName);
-
-    /** Manually expire snapshots, parameters can be controlled independently of table options. */
-    @Experimental
-    ExpireSnapshots newExpireSnapshots();
-
-    @Experimental
-    ExpireSnapshots newExpireChangelog();
+    /** 手动过期快照，参数可以独立于表选项进行控制. */
+    @Experimental ExpireSnapshots newExpireSnapshots();
+    @Experimental ExpireSnapshots newExpireChangelog();
 
     // =============== Read & Write Operations ==================
-
-    /** Returns a new read builder. */
-    ReadBuilder newReadBuilder();
-
-    /** Returns a new batch write builder. */
-    BatchWriteBuilder newBatchWriteBuilder();
-
-    /** Returns a new stream write builder. */
-    StreamWriteBuilder newStreamWriteBuilder();
+    ReadBuilder newReadBuilder();                // ReadBuilder
+    BatchWriteBuilder newBatchWriteBuilder();    // BatchWriteBuilder
+    StreamWriteBuilder newStreamWriteBuilder();  // StreamWriteBuilder
 }

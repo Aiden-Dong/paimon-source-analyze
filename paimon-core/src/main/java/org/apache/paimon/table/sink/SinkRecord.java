@@ -24,7 +24,7 @@ import org.apache.paimon.types.RowKind;
 
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** A sink record contains key, row and partition, bucket information. */
+/** Sink record, 包含 primaryKey, partition, bucket, internalrow 等数据信息*/
 public class SinkRecord {
 
     private final BinaryRow partition;

@@ -64,7 +64,8 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractFileStoreWrite.class);
 
     private final String commitUser;
-    protected final SnapshotManager snapshotManager;
+
+    protected final SnapshotManager snapshotManager;  // 用来管理当前的快照信息
     private final FileStoreScan scan;
     private final int writerNumberMax;
     @Nullable private final IndexMaintainer.Factory<T> indexFactory;
@@ -72,6 +73,7 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
 
     @Nullable protected IOManager ioManager;
 
+    // 每个分区，分桶 下面对应一个 WriterContainer
     protected final Map<BinaryRow, Map<Integer, WriterContainer<T>>> writers;
 
     private ExecutorService lazyCompactExecutor;
@@ -154,9 +156,18 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
         }
     }
 
+    /***
+     * 将数据落盘， 并统计每个 bucket 的提交信息
+     * @param waitCompaction if this method need to wait for current compaction to complete
+     * @param commitIdentifier identifier of the commit being prepared
+     * @return
+     * @throws Exception
+     */
     @Override
     public List<CommitMessage> prepareCommit(boolean waitCompaction, long commitIdentifier)
             throws Exception {
+
+        // 获取提交时间
         long latestCommittedIdentifier;
         if (writers.values().stream()
                         .map(Map::values)
@@ -165,17 +176,13 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
                         .max()
                         .orElse(Long.MIN_VALUE)
                 == Long.MIN_VALUE) {
-            // Optimization for the first commit.
-            //
-            // If this is the first commit, no writer has previous modified commit, so the value of
-            // `latestCommittedIdentifier` does not matter.
-            //
-            // Without this optimization, we may need to scan through all snapshots only to find
-            // that there is no previous snapshot by this user, which is very inefficient.
+            // 首次提交的优化。
+            // 如果这是首次提交，则没有写入者之前修改过提交，因此 `latestCommittedIdentifier` 的值无关紧要。
+            // 如果没有此优化，可能需要扫描所有快照，只是为了发现该用户没有之前的快照，这样效率非常低。
             latestCommittedIdentifier = Long.MIN_VALUE;
         } else {
-            latestCommittedIdentifier =
-                    snapshotManager
+            // 获取当前用户的最后提交时间
+            latestCommittedIdentifier = snapshotManager
                             .latestSnapshotOfUser(commitUser)
                             .map(Snapshot::commitIdentifier)
                             .orElse(Long.MIN_VALUE);
@@ -185,16 +192,20 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
 
         Iterator<Map.Entry<BinaryRow, Map<Integer, WriterContainer<T>>>> partIter =
                 writers.entrySet().iterator();
+
         while (partIter.hasNext()) {
+            // 迭代每个分区
             Map.Entry<BinaryRow, Map<Integer, WriterContainer<T>>> partEntry = partIter.next();
             BinaryRow partition = partEntry.getKey();
-            Iterator<Map.Entry<Integer, WriterContainer<T>>> bucketIter =
-                    partEntry.getValue().entrySet().iterator();
+            Iterator<Map.Entry<Integer, WriterContainer<T>>> bucketIter = partEntry.getValue().entrySet().iterator();
+
             while (bucketIter.hasNext()) {
+                // 迭代每个 bucket
                 Map.Entry<Integer, WriterContainer<T>> entry = bucketIter.next();
                 int bucket = entry.getKey();
                 WriterContainer<T> writerContainer = entry.getValue();
 
+                // 调用write 的预提交过程
                 CommitIncrement increment = writerContainer.writer.prepareCommit(waitCompaction);
                 List<IndexFileMeta> newIndexFiles = new ArrayList<>();
                 if (writerContainer.indexMaintainer != null) {
@@ -213,12 +224,9 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
                 result.add(committable);
 
                 if (committable.isEmpty()) {
-                    // Condition 1: There is no more record waiting to be committed. Note that the
-                    // condition is < (instead of <=), because each commit identifier may have
-                    // multiple snapshots. We must make sure all snapshots of this identifier are
-                    // committed.
-                    // Condition 2: No compaction is in progress. That is, no more changelog will be
-                    // produced.
+                    // 条件 1：没有更多的记录等待提交。注意此条件是 <（而不是 <=），因为每个提交标识符可能有多个快照。
+                    // 我们必须确保该标识符的所有快照都已提交。
+                    // 条件 2：没有压缩操作正在进行，即不会再生成变更日志。
                     if (writerContainer.lastModifiedCommitIdentifier < latestCommittedIdentifier
                             && !writerContainer.writer.isCompacting()) {
                         // Clear writer if no update, and if its latest modification has committed.
@@ -354,13 +362,16 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
         return writers.values().stream().mapToLong(e -> e.values().size()).sum();
     }
 
+    /**
+     * 对于每一个 指定的 bucket 用于初始化一个 WriterContainer
+     */
     @VisibleForTesting
-    public WriterContainer<T> createWriterContainer(
-            BinaryRow partition, int bucket, boolean ignorePreviousFiles) {
+    public WriterContainer<T> createWriterContainer(BinaryRow partition, int bucket, boolean ignorePreviousFiles) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Creating writer for partition {}, bucket {}", partition, bucket);
         }
 
+        // 如果当前 batch 模式， 并且 writer 个数太多，需要进行数据刷盘操作，用来释放 writer
         if (!isStreamingMode && writerNumber() >= writerNumberMax) {
             try {
                 forceBufferSpill();
@@ -369,21 +380,20 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
             }
         }
 
+        // 获取当前 Table 的最新的 SnapshotId
         Long latestSnapshotId = snapshotManager.latestSnapshotId();
         List<DataFileMeta> restoreFiles = new ArrayList<>();
         if (!ignorePreviousFiles && latestSnapshotId != null) {
             restoreFiles = scanExistingFileMetas(latestSnapshotId, partition, bucket);
         }
-        IndexMaintainer<T> indexMaintainer =
-                indexFactory == null
-                        ? null
-                        : indexFactory.createOrRestore(
-                                ignorePreviousFiles ? null : latestSnapshotId, partition, bucket);
-        DeletionVectorsMaintainer deletionVectorsMaintainer =
-                deletionVectorsMaintainerFactory == null
-                        ? null
-                        : deletionVectorsMaintainerFactory.createOrRestore(
-                                ignorePreviousFiles ? null : latestSnapshotId, partition, bucket);
+        IndexMaintainer<T> indexMaintainer = indexFactory == null ?
+                null
+                : indexFactory.createOrRestore(ignorePreviousFiles ? null : latestSnapshotId, partition, bucket);
+
+        DeletionVectorsMaintainer deletionVectorsMaintainer = deletionVectorsMaintainerFactory == null ?
+                null
+                : deletionVectorsMaintainerFactory.createOrRestore(ignorePreviousFiles ? null : latestSnapshotId, partition, bucket);
+
         RecordWriter<T> writer =
                 createWriter(
                         partition.copy(),

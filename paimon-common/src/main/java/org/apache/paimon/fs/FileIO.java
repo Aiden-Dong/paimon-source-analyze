@@ -52,66 +52,29 @@ import static org.apache.paimon.fs.FileIOUtils.checkAccess;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
- * File IO to read and write file.
- *
- * @since 0.4.0
+ * 用于封装对接多个文件系统的 IO 抽象层
  */
 @Public
 @ThreadSafe
 public interface FileIO extends Serializable {
-
     Logger LOG = LoggerFactory.getLogger(FileIO.class);
 
-    boolean isObjectStore();
+    boolean isObjectStore();                      // 这个文件系统是否是对象存储
+    void configure(CatalogContext context);       // 加载 来自 {@link CatalogContext} 的配置信息
 
-    /** Configure by {@link CatalogContext}. */
-    void configure(CatalogContext context);
 
-    /**
-     * Opens an SeekableInputStream at the indicated Path.
-     *
-     * @param path the file to open
-     */
-    SeekableInputStream newInputStream(Path path) throws IOException;
 
-    /**
-     * Opens an PositionOutputStream at the indicated Path.
-     *
-     * @param path the file name to open
-     * @param overwrite if a file with this name already exists, then if true, the file will be
-     *     overwritten, and if false an error will be thrown.
-     * @throws IOException Thrown, if the stream could not be opened because of an I/O, or because a
-     *     file already exists at that path and the write mode indicates to not overwrite the file.
-     */
-    PositionOutputStream newOutputStream(Path path, boolean overwrite) throws IOException;
+    SeekableInputStream newInputStream(Path path) throws IOException;                         // 从指定路径读取数据的接口
+    PositionOutputStream newOutputStream(Path path, boolean overwrite) throws IOException;    // 将数据写入指定路径接口
 
-    /**
-     * Return a file status object that represents the path.
-     *
-     * @param path The path we want information from
-     * @return a FileStatus object
-     * @throws FileNotFoundException when the path does not exist; IOException see specific
-     *     implementation
-     */
-    FileStatus getFileStatus(Path path) throws IOException;
+    boolean rename(Path src, Path dst) throws IOException;                                    // 路径重命名
+    boolean mkdirs(Path path) throws IOException;                                             // 创建一个目录
+    boolean delete(Path path, boolean recursive) throws IOException;                          // 删除一个文件或者目录
+    boolean exists(Path path) throws IOException;                                             // 判定一个路径是否存在
+    FileStatus getFileStatus(Path path) throws IOException;                                   // 获取文件的状态信息
+    FileStatus[] listStatus(Path path) throws IOException;                                    // 获取子路径的状态信息
 
-    /**
-     * List the statuses of the files/directories in the given path if the path is a directory.
-     *
-     * @param path given path
-     * @return the statuses of the files/directories in the given path
-     */
-    FileStatus[] listStatus(Path path) throws IOException;
-
-    /**
-     * List the statuses of the directories in the given path if the path is a directory.
-     *
-     * <p>{@link FileIO} implementation may have optimization for list directories.
-     *
-     * @param path given path
-     * @return the statuses of the directories in the given path
-     */
-    default FileStatus[] listDirectories(Path path) throws IOException {
+    default FileStatus[] listDirectories(Path path) throws IOException {                      // 获取子路径的状态信息
         FileStatus[] statuses = listStatus(path);
         if (statuses != null) {
             statuses = Arrays.stream(statuses).filter(FileStatus::isDir).toArray(FileStatus[]::new);
@@ -119,48 +82,13 @@ public interface FileIO extends Serializable {
         return statuses;
     }
 
-    /**
-     * Check if exists.
-     *
-     * @param path source file
-     */
-    boolean exists(Path path) throws IOException;
 
-    /**
-     * Delete a file.
-     *
-     * @param path the path to delete
-     * @param recursive if path is a directory and set to <code>true</code>, the directory is
-     *     deleted else throws an exception. In case of a file the recursive can be set to either
-     *     <code>true</code> or <code>false</code>
-     * @return <code>true</code> if delete is successful, <code>false</code> otherwise
-     */
-    boolean delete(Path path, boolean recursive) throws IOException;
-
-    /**
-     * Make the given file and all non-existent parents into directories. Has the semantics of Unix
-     * 'mkdir -p'. Existence of the directory hierarchy is not an error.
-     *
-     * @param path the directory/directories to be created
-     * @return <code>true</code> if at least one new directory has been created, <code>false</code>
-     *     otherwise
-     * @throws IOException thrown if an I/O error occurs while creating the directory
-     */
-    boolean mkdirs(Path path) throws IOException;
-
-    /**
-     * Renames the file/directory src to dst.
-     *
-     * @param src the file/directory to rename
-     * @param dst the new name of the file/directory
-     * @return <code>true</code> if the renaming was successful, <code>false</code> otherwise
-     */
-    boolean rename(Path src, Path dst) throws IOException;
 
     // -------------------------------------------------------------------------
     //                            utils
     // -------------------------------------------------------------------------
 
+    // 忽略异常的删除文件操作
     default void deleteQuietly(Path file) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Ready to delete " + file.toString());
@@ -175,6 +103,7 @@ public interface FileIO extends Serializable {
         }
     }
 
+    // 忽略异常的删除目录操作
     default void deleteDirectoryQuietly(Path directory) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Ready to delete " + directory.toString());
@@ -189,14 +118,17 @@ public interface FileIO extends Serializable {
         }
     }
 
+    // 获取文件大小
     default long getFileSize(Path path) throws IOException {
         return getFileStatus(path).getLen();
     }
 
+    // 判断文件是否是目录
     default boolean isDir(Path path) throws IOException {
         return getFileStatus(path).isDir();
     }
 
+    // 如果不存在创建目录
     default void checkOrMkdirs(Path path) throws IOException {
         if (exists(path)) {
             checkArgument(isDir(path), "The path '%s' should be a directory.", path);
@@ -205,7 +137,7 @@ public interface FileIO extends Serializable {
         }
     }
 
-    /** Read file to UTF_8 decoding. */
+    // 直接将文件读取并返回 UTF-8 编码字符串
     default String readFileUtf8(Path path) throws IOException {
         try (SeekableInputStream in = newInputStream(path)) {
             BufferedReader reader =
@@ -219,12 +151,7 @@ public interface FileIO extends Serializable {
         }
     }
 
-    /**
-     * Write content to one file atomically, initially writes to temp hidden file and only renames
-     * to the target file once temp file is closed.
-     *
-     * @return false if target file exists
-     */
+    // 直接将一个 UTF8字符串追加写入文件内
     default boolean writeFileUtf8(Path path, String content) throws IOException {
         if (exists(path)) {
             return false;
@@ -249,10 +176,7 @@ public interface FileIO extends Serializable {
         return success;
     }
 
-    /**
-     * Overwrite file by content atomically, different {@link FileIO}s have different atomic
-     * implementations.
-     */
+    // 直接将一个 UTF8字符串覆盖写入文件内
     default void overwriteFileUtf8(Path path, String content) throws IOException {
         try (PositionOutputStream out = newOutputStream(path, true)) {
             OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
@@ -261,18 +185,13 @@ public interface FileIO extends Serializable {
         }
     }
 
-    /**
-     * Read file to UTF_8 decoding, then write content to one file atomically, initially writes to
-     * temp hidden file and only renames to the target file once temp file is closed.
-     *
-     * @return false if targetPath file exists
-     */
+    // 拷贝一个 UTF8 文本文件
     default boolean copyFileUtf8(Path sourcePath, Path targetPath) throws IOException {
         String content = readFileUtf8(sourcePath);
         return writeFileUtf8(targetPath, content);
     }
 
-    /** Read file from {@link #overwriteFileUtf8} file. */
+    // 从 {@link #overwriteFileUtf8} 操作的文件中读取文本数据内容.
     default Optional<String> readOverwrittenFileUtf8(Path path) throws IOException {
         int retryNumber = 0;
         IOException exception = null;
@@ -308,8 +227,7 @@ public interface FileIO extends Serializable {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns a reference to the {@link FileIO} instance for accessing the file system identified
-     * by the given path.
+     * 基于 SPI 先获取所有可以获取到的 {@link FileIOLoader}, 然后基于 uri schema 匹配到对应的 FileIO
      */
     static FileIO get(Path path, CatalogContext config) throws IOException {
         URI uri = path.toUri();
@@ -325,12 +243,8 @@ public interface FileIO extends Serializable {
 
             throw new IOException(
                     "Found local file path with authority '"
-                            + uri.getAuthority()
-                            + "' in path '"
-                            + uri
-                            + "'. Hint: Did you forget a slash? (correct path would be '"
-                            + supposedUri
-                            + "')");
+                            + uri.getAuthority() + "' in path '" + uri
+                            + "'. Hint: Did you forget a slash? (correct path would be '" + supposedUri + "')");
         }
 
         FileIOLoader loader = null;
@@ -344,6 +258,7 @@ public interface FileIO extends Serializable {
             ioExceptionList.add(ioException);
         }
 
+        // 基于 SPI 加载所有的 FileIOLoader
         if (loader == null) {
             Map<String, FileIOLoader> loaders = discoverLoaders();
             loader = loaders.get(uri.getScheme());
@@ -353,11 +268,11 @@ public interface FileIO extends Serializable {
         FileIOLoader fallbackIO = config.fallbackIO();
 
         if (loader != null) {
-            Set<String> options =
-                    config.options().keySet().stream()
+            Set<String> options = config.options().keySet().stream()
                             .map(String::toLowerCase)
                             .collect(Collectors.toSet());
             Set<String> missOptions = new HashSet<>();
+
             for (String[] keys : loader.requiredOptions()) {
                 boolean found = false;
                 for (String key : keys) {
@@ -435,19 +350,17 @@ public interface FileIO extends Serializable {
 
     /** Discovers all {@link FileIOLoader} by service loader. */
     static Map<String, FileIOLoader> discoverLoaders() {
+
         Map<String, FileIOLoader> results = new HashMap<>();
-        Iterator<FileIOLoader> iterator =
-                ServiceLoader.load(FileIOLoader.class, FileIOLoader.class.getClassLoader())
-                        .iterator();
+        Iterator<FileIOLoader> iterator = ServiceLoader.load(FileIOLoader.class, FileIOLoader.class.getClassLoader()).iterator();
+
         iterator.forEachRemaining(
                 fileIO -> {
                     FileIOLoader previous = results.put(fileIO.getScheme(), fileIO);
                     if (previous != null) {
                         throw new RuntimeException(
                                 String.format(
-                                        "Multiple FileIO for scheme '%s' found in the classpath.\n"
-                                                + "Ambiguous FileIO classes are:\n"
-                                                + "%s\n%s",
+                                        "Multiple FileIO for scheme '%s' found in the classpath. Ambiguous FileIO classes are: %s\n%s",
                                         fileIO.getScheme(),
                                         previous.getClass().getName(),
                                         fileIO.getClass().getName()));

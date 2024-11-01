@@ -43,14 +43,26 @@ import static org.apache.paimon.utils.Preconditions.checkState;
 /**
  * {@link TableWrite} implementation.
  *
+ * 主要做数据写入前的预操作， 数据写入主要还是经过 {@link FileStoreWrite} 来完成
+ *
  * @param <T> type of record to write into {@link FileStore}.
  */
 public class TableWriteImpl<T> implements InnerTableWrite, Restorable<List<State<T>>> {
 
+    // 数据写入工具
     private final FileStoreWrite<T> write;
+
+    // 计算数据的分区，分桶， 主键 的工具
     private final KeyAndBucketExtractor<InternalRow> keyAndBucketExtractor;
+
     private final RecordExtractor<T> recordExtractor;
+    // 用于从 InternalRow 中获取 RowKind
+    // 生成逻辑取自 : {rowkind.field}
+    // 如果 RowKind 来自 表字段， 则可以从表字段中获取
+    // 为主键表生成行类型的字段，行类型决定哪个数据是 '+I'、'-U'、'+U' 或 '-D'。
     @Nullable private final RowKindGenerator rowKindGenerator;
+
+    // ignore-delete : 是否是忽略 RowKind.UPDATE_BEFORE, RowKind.DELETE 事件数据
     private final boolean ignoreDelete;
 
     private boolean batchCommitted = false;
@@ -132,13 +144,16 @@ public class TableWriteImpl<T> implements InnerTableWrite, Restorable<List<State
 
     @Nullable
     public SinkRecord writeAndReturn(InternalRow row) throws Exception {
-        // 获取数据类型
+        // 获取写入类型
         RowKind rowKind = RowKindGenerator.getRowKind(rowKindGenerator, row);
 
+        // 是否是忽略 RowKind.UPDATE_BEFORE, RowKind.DELETE 事件数据
         if (ignoreDelete && rowKind.isRetract()) {
             return null;
         }
+        // InternalRow -> SinkRecord
         SinkRecord record = toSinkRecord(row);
+
         write.write(record.partition(), record.bucket(), recordExtractor.extract(record, rowKind));
         return record;
     }

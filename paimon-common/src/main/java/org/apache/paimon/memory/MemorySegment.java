@@ -34,12 +34,16 @@ import java.util.Objects;
 
 import static org.apache.paimon.memory.MemoryUtils.getByteBufferAddress;
 
-/* This file is based on source code of Apache Flink Project (https://flink.apache.org/), licensed by the Apache
- * Software Foundation (ASF) under the Apache License, Version 2.0. See the NOTICE file distributed with this work for
- * additional information regarding copyright ownership. */
+
+/******
+ * 本文件基于 Apache Flink 项目的源代码 (https://flink.apache.org/)，
+ * 由 Apache 软件基金会 (ASF) 根据 Apache 许可证第 2.0 版授权。
+ * 有关版权拥有的附加信息，请参见随本作品分发的 NOTICE 文件。
+ **/
+
 
 /**
- * This class represents a piece of memory.
+ * 该类表示一块内存。
  *
  * @since 0.4.0
  */

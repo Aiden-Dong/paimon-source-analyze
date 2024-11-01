@@ -85,8 +85,7 @@ public class MergeSorter {
         this.compression = options.spillCompression();
         this.keyType = keyType;
         this.valueType = valueType;
-        this.memoryPool =
-                new CachelessSegmentPool(options.sortSpillBufferSize(), options.pageSize());
+        this.memoryPool = new CachelessSegmentPool(options.sortSpillBufferSize(), options.pageSize());
         this.ioManager = ioManager;
         this.maxDiskSize = options.writeBufferSpillDiskSize();
     }

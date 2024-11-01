@@ -30,7 +30,15 @@ import org.apache.paimon.table.source.InnerTableScan;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.ReadBuilderImpl;
 
-/** Inner table for implementation, provide newScan, newRead ... directly. */
+/**
+ * Inner table for implementation, provide newScan, newRead ... directly.
+ *
+ * 主要提供两种实现 :
+ *
+ *   - {@link org.apache.paimon.table.PrimaryKeyFileStoreTable}
+ *   - {@link org.apache.paimon.table.AppendOnlyFileStoreTable}
+ *
+ **/
 public interface InnerTable extends Table {
 
     InnerTableScan newScan();

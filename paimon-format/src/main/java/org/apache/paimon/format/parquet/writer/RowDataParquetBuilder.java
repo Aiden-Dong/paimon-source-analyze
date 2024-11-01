@@ -36,8 +36,8 @@ import java.io.IOException;
 /** A {@link ParquetBuilder} for {@link InternalRow}. */
 public class RowDataParquetBuilder implements ParquetBuilder<InternalRow> {
 
-    private final RowType rowType;
-    private final Configuration conf;
+    private final RowType rowType;        // schema 类型
+    private final Configuration conf;     // hadoop 配置  -- 来自 option 选项
 
     public RowDataParquetBuilder(RowType rowType, Options options) {
         this.rowType = rowType;
@@ -45,34 +45,24 @@ public class RowDataParquetBuilder implements ParquetBuilder<InternalRow> {
         options.toMap().forEach(conf::set);
     }
 
+    // Parquet 写入构建工具
     @Override
     public ParquetWriter<InternalRow> createWriter(OutputFile out, String compression)
             throws IOException {
+
+        // 自定义 parquet write builder
         return new ParquetRowDataBuilder(out, rowType)
                 .withConf(conf)
                 .withCompressionCodec(CompressionCodecName.fromConf(getCompression(compression)))
-                .withRowGroupSize(
-                        conf.getLong(
-                                ParquetOutputFormat.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE))
-                .withPageSize(
-                        conf.getInt(ParquetOutputFormat.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE))
-                .withDictionaryPageSize(
-                        conf.getInt(
-                                ParquetOutputFormat.DICTIONARY_PAGE_SIZE,
-                                ParquetProperties.DEFAULT_DICTIONARY_PAGE_SIZE))
-                .withMaxPaddingSize(
-                        conf.getInt(
-                                ParquetOutputFormat.MAX_PADDING_BYTES,
-                                ParquetWriter.MAX_PADDING_SIZE_DEFAULT))
-                .withDictionaryEncoding(
-                        conf.getBoolean(
-                                ParquetOutputFormat.ENABLE_DICTIONARY,
-                                ParquetProperties.DEFAULT_IS_DICTIONARY_ENABLED))
-                .withValidation(conf.getBoolean(ParquetOutputFormat.VALIDATION, false))
-                .withWriterVersion(
+                .withRowGroupSize(conf.getLong(ParquetOutputFormat.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE))   // parquet.block.size
+                .withPageSize(conf.getInt(ParquetOutputFormat.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE))          // parquet.page.size
+                .withDictionaryPageSize(conf.getInt(ParquetOutputFormat.DICTIONARY_PAGE_SIZE, ParquetProperties.DEFAULT_DICTIONARY_PAGE_SIZE)) // parquet.dictionary.page.size
+                .withMaxPaddingSize(conf.getInt(ParquetOutputFormat.MAX_PADDING_BYTES, ParquetWriter.MAX_PADDING_SIZE_DEFAULT))  // parquet.writer.max-padding
+                .withDictionaryEncoding(conf.getBoolean(ParquetOutputFormat.ENABLE_DICTIONARY, ParquetProperties.DEFAULT_IS_DICTIONARY_ENABLED))  // parquet.enable.dictionary
+                .withValidation(conf.getBoolean(ParquetOutputFormat.VALIDATION, false))  // parquet.validation
+                .withWriterVersion(                                                                  // parquet.writer.version
                         ParquetProperties.WriterVersion.fromString(
-                                conf.get(
-                                        ParquetOutputFormat.WRITER_VERSION,
+                                conf.get(ParquetOutputFormat.WRITER_VERSION,
                                         ParquetProperties.DEFAULT_WRITER_VERSION.toString())))
                 .build();
     }

@@ -151,6 +151,7 @@ class PrimaryKeyFileStoreTable extends AbstractFileStoreTable {
                 () -> store().newRead(), () -> store().newBatchRawFileRead(), schema());
     }
 
+    // 写操作
     @Override
     public TableWriteImpl<KeyValue> newWrite(String commitUser) {
         return newWrite(commitUser, null);

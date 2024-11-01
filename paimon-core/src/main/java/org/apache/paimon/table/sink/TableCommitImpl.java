@@ -187,6 +187,9 @@ public class TableCommitImpl implements InnerTableCommit {
                         .collect(Collectors.toList()));
     }
 
+    /********************************************
+     * 将所有的提交信息封装在 ManifestCommittable 中
+     */
     private ManifestCommittable createManifestCommittable(long identifier, List<CommitMessage> commitMessages) {
         ManifestCommittable committable = new ManifestCommittable(identifier);
         for (CommitMessage commitMessage : commitMessages) {

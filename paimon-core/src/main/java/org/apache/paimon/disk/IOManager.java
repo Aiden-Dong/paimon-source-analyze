@@ -25,7 +25,7 @@ import org.apache.paimon.disk.FileIOChannel.ID;
 import java.io.IOException;
 
 /**
- * The facade for the provided disk I/O services.
+ * 提供的磁盘 I/O 服务的外观接口。.
  *
  * @since 0.4.0
  */

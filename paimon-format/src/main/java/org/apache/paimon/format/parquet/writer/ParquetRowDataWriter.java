@@ -51,7 +51,9 @@ import static org.apache.paimon.format.parquet.reader.TimestampColumnReader.MILL
 import static org.apache.paimon.format.parquet.reader.TimestampColumnReader.NANOS_PER_MILLISECOND;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** Writes a record to the Parquet API with the expected schema in order to be written to a file. */
+/**
+ *  将记录按预期的模式写入 Parquet API，以便写入文件。.
+ * */
 public class ParquetRowDataWriter {
 
     private final RowWriter rowWriter;

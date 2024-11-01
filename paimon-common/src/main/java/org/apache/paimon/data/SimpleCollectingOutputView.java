@@ -28,12 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The list with the full segments contains at any point all completely full segments, plus the
- * segment that is currently filled.
+ * 包含完全填满的 memorysegment, 以及正在使用的 segment
  */
 public class SimpleCollectingOutputView extends AbstractPagedOutputView {
 
-    private final List<MemorySegment> fullSegments;
+    private final List<MemorySegment> fullSegments;  // 包含
 
     private final MemorySegmentSource memorySource;
 

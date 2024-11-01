@@ -31,9 +31,7 @@ import org.apache.paimon.memory.MemorySegmentPool;
 import java.io.IOException;
 import java.util.ArrayList;
 
-/**
- * An abstract sortable, provide basic compare and swap. Support writing of index and normalizedKey.
- */
+// 一个抽象的可排序类型，提供基本的比较和交换功能。支持索引和规范化键的写入。
 public abstract class BinaryIndexedSortable implements IndexedSortable {
 
     public static final int OFFSET_LEN = 8;
@@ -48,10 +46,10 @@ public abstract class BinaryIndexedSortable implements IndexedSortable {
     protected final RandomAccessInputView recordBuffer;
     private final RandomAccessInputView recordBufferForComparison;
 
-    // segments
-    protected MemorySegment currentSortIndexSegment;
-    protected final MemorySegmentPool memorySegmentPool;
-    protected final ArrayList<MemorySegment> sortIndex;
+    // segment 管理器
+    protected MemorySegment currentSortIndexSegment;        // 当前在用的 segment
+    protected final MemorySegmentPool memorySegmentPool;    // 用于产生新的 segment 池子
+    protected final ArrayList<MemorySegment> sortIndex;     // 已经生成的 segment 集合
 
     // normalized key attributes
     private final int numKeyBytes;

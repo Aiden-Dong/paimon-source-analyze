@@ -29,34 +29,30 @@ import java.io.IOException;
 import java.util.Comparator;
 
 /**
- * Append only writer buffer for storing key-values. When it is full, it will be flushed to disk and
- * form a data file.
+ * 仅用于追加的写入缓冲区，用于存储键值对。当缓冲区满时，它将被刷新到磁盘并形成一个数据文件。
  */
 public interface WriteBuffer {
 
     /**
-     * Put a record with sequence number and value kind.
-     *
-     * @return True, if the record was successfully written, false, if the mem table was full.
+     * 写入一个带有序列号和值类型的记录。
+     * @return 如果记录成功写入则返回 true；如果内存表已满则返回 false。
      */
-    boolean put(long sequenceNumber, RowKind valueKind, InternalRow key, InternalRow value)
-            throws IOException;
+    boolean put(long sequenceNumber, RowKind valueKind, InternalRow key, InternalRow value) throws IOException;
 
-    /** Record size of this table. */
+    // 此表的记录大小
     int size();
 
-    /** Memory occupancy size of this table. */
+    // 此表的内存占用大小。
     long memoryOccupancy();
 
-    /** Flush memory, return false if not supported. */
+    // 刷新内存；如果不支持则返回 false。
     boolean flushMemory() throws IOException;
 
     /**
-     * Performs the given action for each remaining element in this buffer until all elements have
-     * been processed or the action throws an exception.
+     * 对缓冲区中每个剩余元素执行指定操作，直到所有元素都已处理完毕或操作抛出异常为止。
      *
-     * @param rawConsumer consumer to consume records without merging.
-     * @param mergedConsumer consumer to consume records after merging.
+     * @param rawConsumer 消费未合并记录的消费者。
+     * @param mergedConsumer 消费合并后记录的消费者。
      */
     void forEach(
             Comparator<InternalRow> keyComparator,
@@ -65,10 +61,10 @@ public interface WriteBuffer {
             KvConsumer mergedConsumer)
             throws IOException;
 
-    /** Removes all records from this table. The table will be empty after this call returns. */
+    // 删除此表中的所有记录。调用返回后，表将为空。
     void clear();
 
-    /** A Consumer that accepts KeyValue and throw exceptions. */
+    // 一个接受 KeyValue 并可能抛出异常的消费者。
     @FunctionalInterface
     interface KvConsumer {
         void accept(KeyValue kv) throws IOException;

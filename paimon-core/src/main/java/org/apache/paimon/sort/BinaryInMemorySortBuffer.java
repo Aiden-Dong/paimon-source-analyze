@@ -36,11 +36,11 @@ import java.util.ArrayList;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
- * In memory sort buffer for binary row.
+ * 用于二进制行的内存排序缓冲区。
  *
  * <ul>
- *   <li>{@link #clear}: Clean all memory.
- *   <li>{@link #tryInitialize}: initialize memory before write and read in buffer.
+ *   <li>{@link #clear}: 清理内存区
+ *   <li>{@link #tryInitialize}:在缓冲区中写入和读取之前初始化内存。
  * </ul>
  */
 public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements SortBuffer {
@@ -63,13 +63,13 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
             MemorySegmentPool memoryPool) {
         checkArgument(memoryPool.freePages() >= MIN_REQUIRED_BUFFERS);
         ArrayList<MemorySegment> recordBufferSegments = new ArrayList<>(16);
+
         return new BinaryInMemorySortBuffer(
                 normalizedKeyComputer,
                 serializer,
                 comparator,
                 recordBufferSegments,
-                new SimpleCollectingOutputView(
-                        recordBufferSegments, memoryPool, memoryPool.pageSize()),
+                new SimpleCollectingOutputView(recordBufferSegments, memoryPool, memoryPool.pageSize()),
                 memoryPool);
     }
 
@@ -153,13 +153,11 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
     }
 
     /**
-     * Writes a given record to this sort buffer. The written record will be appended and take the
-     * last logical position.
+     * 将给定记录写入此排序缓冲区。写入的记录将被追加到最后的逻辑位置。
      *
-     * @param record The record to be written.
-     * @return True, if the record was successfully written, false, if the sort buffer was full.
-     * @throws IOException Thrown, if an error occurred while serializing the record into the
-     *     buffers.
+     * @param record 要写入的记录。
+     * @return 如果记录成功写入则返回 true；如果排序缓冲区已满则返回 false。
+     * @throws IOException 如果将记录序列化到缓冲区时发生错误，则抛出此异常。
      */
     @Override
     public boolean write(InternalRow record) throws IOException {
@@ -170,15 +168,19 @@ public class BinaryInMemorySortBuffer extends BinaryIndexedSortable implements S
             return false;
         }
 
-        // serialize the record into the data buffers
+        // 将记录序列化到数据缓冲区中。
         int skip;
         try {
+            // 将当前数据序列化到 MemorySegment 中
             skip = this.inputSerializer.serializeToPages(record, this.recordCollector);
         } catch (EOFException e) {
             return false;
         }
 
+        // 火的当前
         final long newOffset = this.recordCollector.getCurrentOffset();
+
+        // 记录当前的数据所在的便宜位置
         long currOffset = currentDataBufferOffset + skip;
 
         writeIndexAndNormalizedKey(record, currOffset);

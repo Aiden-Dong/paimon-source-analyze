@@ -62,8 +62,8 @@ public class SnapshotManager implements Serializable {
     private static final int READ_HINT_RETRY_NUM = 3;
     private static final int READ_HINT_RETRY_INTERVAL = 1;
 
-    private final FileIO fileIO;
-    private final Path tablePath;
+    private final FileIO fileIO;    // 文件操作接口
+    private final Path tablePath;   // 表路径
 
     public SnapshotManager(FileIO fileIO, Path tablePath) {
         this.fileIO = fileIO;
@@ -74,14 +74,17 @@ public class SnapshotManager implements Serializable {
         return fileIO;
     }
 
+    // 获取当前表的路径
     public Path tablePath() {
         return tablePath;
     }
 
+    // 获取当前表的 snapshot 路径
     public Path snapshotDirectory() {
         return new Path(tablePath + "/snapshot");
     }
 
+    // 获取当前表的 chanagelog 路径
     public Path changelogDirectory() {
         return new Path(tablePath + "/changelog");
     }
@@ -90,31 +93,43 @@ public class SnapshotManager implements Serializable {
         return new Path(tablePath + "/changelog/" + CHANGELOG_PREFIX + snapshotId);
     }
 
+    // 基于 snapshot id 获取 snapshot 路径 : ${tablePath}/snapshot/snapshot-${snapshotId}
     public Path snapshotPath(long snapshotId) {
         return new Path(tablePath + "/snapshot/" + SNAPSHOT_PREFIX + snapshotId);
     }
 
+    // 获取 branch snapshot 路径 :
+    // ${tablePath}/branch/branch-${branch}/snapshot
     public Path branchSnapshotDirectory(String branchName) {
         return new Path(getBranchPath(tablePath, branchName) + "/snapshot");
     }
 
+    // 基于 branch， snapshotId 获取具体的 snapshot 数据路径
+    // ${tablePath}/branch/branch-${branch}/snapshot/snapshot-${snapshotId}
     public Path branchSnapshotPath(String branchName, long snapshotId) {
         return new Path(
                 getBranchPath(tablePath, branchName) + "/snapshot/" + SNAPSHOT_PREFIX + snapshotId);
     }
 
+    // 基于 branch 的 snapshot 寻址模式 ：
+    // 如果是主分支   : 则位于 ${tablePath}/snapshot/snapshot-${snapshotId}
+    // 如果是其他分支 : 则位于  ${tablePath}/branch/branch-${branch}/snapshot/snapshot-${snapshotId}
     public Path snapshotPathByBranch(String branchName, long snapshotId) {
         return branchName.equals(DEFAULT_MAIN_BRANCH)
                 ? snapshotPath(snapshotId)
                 : branchSnapshotPath(branchName, snapshotId);
     }
 
+    // 基于 branch 的 snapshot 寻址模式 ：
+    // 如果是主分支   : 则位于 ${tablePath}/snapshot/
+    // 如果是其他分支 : 则位于  ${tablePath}/branch/branch-${branch}/snapshot/
     public Path snapshotDirByBranch(String branchName) {
         return branchName.equals(DEFAULT_MAIN_BRANCH)
                 ? snapshotDirectory()
                 : branchSnapshotDirectory(branchName);
     }
 
+    // 从对应的 snapshot 文件中读取数据， 返回 snapshot 类型实体
     public Snapshot snapshot(long snapshotId) {
         return snapshot(DEFAULT_MAIN_BRANCH, snapshotId);
     }
@@ -128,11 +143,13 @@ public class SnapshotManager implements Serializable {
         return Changelog.fromPath(fileIO, longLivedChangelogPath(snapshotId));
     }
 
+    // 从对应的 snapshot 文件中读取数据， 返回 snapshot 类型实体
     public Snapshot snapshot(String branchName, long snapshotId) {
         Path snapshotPath = snapshotPathByBranch(branchName, snapshotId);
         return Snapshot.fromPath(fileIO, snapshotPath);
     }
 
+    // 判断当前的 snapshot 是否存在
     public boolean snapshotExists(long snapshotId) {
         Path path = snapshotPath(snapshotId);
         try {
@@ -151,10 +168,12 @@ public class SnapshotManager implements Serializable {
         }
     }
 
+    // 获取最新的 snapshot -> LATEST
     public @Nullable Snapshot latestSnapshot() {
         return latestSnapshot(DEFAULT_MAIN_BRANCH);
     }
 
+    // 获取当前分支最新的 snapshot -> LATEST
     public @Nullable Snapshot latestSnapshot(String branchName) {
         Long snapshotId = latestSnapshotId(branchName);
         return snapshotId == null ? null : snapshot(branchName, snapshotId);

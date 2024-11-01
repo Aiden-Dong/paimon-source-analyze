@@ -53,12 +53,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.IntStream;
 
-/** A {@link WriteBuffer} which stores records in {@link BinaryInMemorySortBuffer}. */
+/**
+ * 一个 {@link WriteBuffer}，用于将记录存储在 {@link BinaryInMemorySortBuffer} 中。
+ **/
 public class SortBufferWriteBuffer implements WriteBuffer {
 
     private final RowType keyType;
     private final RowType valueType;
-    private final KeyValueSerializer serializer;
+    private final KeyValueSerializer serializer;   //  序列化工具
     private final SortBuffer buffer;
 
     public SortBufferWriteBuffer(
@@ -80,8 +82,7 @@ public class SortBufferWriteBuffer implements WriteBuffer {
 
         // user define sequence fields
         if (userDefinedSeqComparator != null) {
-            IntStream udsFields =
-                    IntStream.of(userDefinedSeqComparator.compareFields())
+            IntStream udsFields = IntStream.of(userDefinedSeqComparator.compareFields())
                             .map(operand -> operand + keyType.getFieldCount() + 2);
             sortFields = IntStream.concat(sortFields, udsFields);
         }
@@ -97,22 +98,19 @@ public class SortBufferWriteBuffer implements WriteBuffer {
         fieldTypes.add(new TinyIntType(false));
         fieldTypes.addAll(valueType.getFieldTypes());
 
-        NormalizedKeyComputer normalizedKeyComputer =
-                CodeGenUtils.newNormalizedKeyComputer(fieldTypes, sortFieldArray);
-        RecordComparator keyComparator =
-                CodeGenUtils.newRecordComparator(fieldTypes, sortFieldArray);
+        NormalizedKeyComputer normalizedKeyComputer = CodeGenUtils.newNormalizedKeyComputer(fieldTypes, sortFieldArray);
+        RecordComparator keyComparator = CodeGenUtils.newRecordComparator(fieldTypes, sortFieldArray);
 
         if (memoryPool.freePages() < 3) {
             throw new IllegalArgumentException(
                     "Write buffer requires a minimum of 3 page memory, please increase write buffer memory size.");
         }
-        InternalRowSerializer serializer =
-                InternalSerializers.create(KeyValue.schema(keyType, valueType));
-        BinaryInMemorySortBuffer inMemorySortBuffer =
-                BinaryInMemorySortBuffer.createBuffer(
+        InternalRowSerializer serializer = InternalSerializers.create(KeyValue.schema(keyType, valueType));
+
+        BinaryInMemorySortBuffer inMemorySortBuffer = BinaryInMemorySortBuffer.createBuffer(
                         normalizedKeyComputer, serializer, keyComparator, memoryPool);
-        this.buffer =
-                ioManager != null && spillable
+
+        this.buffer = ioManager != null && spillable
                         ? new BinaryExternalSortBuffer(
                                 new BinaryRowSerializer(serializer.getArity()),
                                 keyComparator,

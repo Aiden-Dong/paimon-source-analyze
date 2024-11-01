@@ -351,24 +351,24 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     }
 
     @Override
-    public void overwrite(
-            Map<String, String> partition,
-            ManifestCommittable committable,
-            Map<String, String> properties) {
+    public void overwrite(Map<String, String> partition, ManifestCommittable committable, Map<String, String> properties) {
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Ready to overwrite partition {}\nManifestCommittable: {}\nProperties: {}", partition, committable, properties);
+            LOG.debug("Ready to overwrite partition {}\nManifestCommittable: {}\nProperties: {}",
+                    partition, committable, properties);
         }
 
         long started = System.nanoTime();
         int generatedSnapshot = 0;
         int attempts = 0;
+
         List<ManifestEntry> appendTableFiles = new ArrayList<>();
         List<ManifestEntry> appendChangelog = new ArrayList<>();
         List<ManifestEntry> compactTableFiles = new ArrayList<>();
         List<ManifestEntry> compactChangelog = new ArrayList<>();
         List<IndexManifestEntry> appendHashIndexFiles = new ArrayList<>();
         List<IndexManifestEntry> compactDvIndexFiles = new ArrayList<>();
+
         collectChanges(
                 committable.fileCommittables(),
                 appendTableFiles,
@@ -751,9 +751,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         // 新增 snapshot = last snapshot + 1
         long newSnapshotId = latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
 
-        // 定义 snapshot path
-        Path newSnapshotPath = branchName.equals(DEFAULT_MAIN_BRANCH)
-                        ? snapshotManager.snapshotPath(newSnapshotId)
+        // 基于最新的 snapshot ，确定 snapshot 存储位置
+        Path newSnapshotPath = branchName.equals(DEFAULT_MAIN_BRANCH) ? snapshotManager.snapshotPath(newSnapshotId)
                         : snapshotManager.branchSnapshotPath(branchName, newSnapshotId);
 
         if (LOG.isDebugEnabled()) {

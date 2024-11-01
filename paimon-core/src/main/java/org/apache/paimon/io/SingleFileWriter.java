@@ -34,21 +34,21 @@ import java.io.UncheckedIOException;
 import java.util.function.Function;
 
 /**
- * A {@link FileWriter} to produce a single file.
+ * 用于生成单个文件的 {@link FileWriter}。
  *
- * @param <T> type of records to write.
- * @param <R> type of result to produce after writing a file.
+ * @param <T> 要写入的记录类型。
+ * @param <R> 写入文件后生成的结果类型。
  */
 public abstract class SingleFileWriter<T, R> implements FileWriter<T, R> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SingleFileWriter.class);
 
-    protected final FileIO fileIO;
-    protected final Path path;
-    private final Function<T, InternalRow> converter;
+    protected final FileIO fileIO;                        // 写入的文件操作句柄
+    protected final Path path;                            // 写文件路径
+    private final Function<T, InternalRow> converter;     // ? ??
 
-    private final FormatWriter writer;
-    private PositionOutputStream out;
+    private final FormatWriter writer;                   // 用于对接不同的 文件写出类型 ： ORC / PARQUET
+    private PositionOutputStream out;                    // write 底层使用的 IO 工具类
 
     private long recordCount;
     protected boolean closed;

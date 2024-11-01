@@ -28,15 +28,13 @@ import java.io.IOException;
 public interface PagedTypeSerializer<T> extends Serializer<T> {
 
     /**
-     * Serializes the given record to the given target paged output view. Some implementations may
-     * skip some bytes if current page does not have enough space left, .e.g {@link BinaryRow}.
+     * 将给定记录序列化到指定的目标分页输出视图。
+     * 一些实现可能会跳过某些字节，如果当前页面没有足够的剩余空间，例如 {@link BinaryRow}。
      *
-     * @param record The record to serialize.
-     * @param target The output view to write the serialized data to.
-     * @return Returns the skipped number of bytes.
-     * @throws IOException Thrown, if the serialization encountered an I/O related error. Typically
-     *     raised by the output view, which may have an underlying I/O channel to which it
-     *     delegates.
+     * @param record 要序列化的记录。
+     * @param target 要写入序列化数据的输出视图。
+     * @return 返回跳过的字节数。
+     * @throws IOException 如果序列化过程中遇到 I/O 相关错误，将抛出此异常。通常由输出视图引发，输出视图可能具有底层 I/O 通道并将其委托。
      */
     int serializeToPages(T record, AbstractPagedOutputView target) throws IOException;
 

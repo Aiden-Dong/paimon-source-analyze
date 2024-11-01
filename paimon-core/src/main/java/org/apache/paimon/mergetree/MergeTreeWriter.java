@@ -51,34 +51,51 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** A {@link RecordWriter} to write records and generate {@link CompactIncrement}. */
+/**
+ * 一个 {@link RecordWriter}，用于写入记录并生成 {@link CompactIncrement}。
+ */
 public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
-    private final boolean writeBufferSpillable;
+    private final boolean writeBufferSpillable;    // 是否支持 spill 操作
+
+    // {write-buffer-spill.max-disk-size}
+    // 用于写入缓冲区溢出的最大磁盘空间。此设置仅在启用写入缓冲区溢出时有效。
     private final MemorySize maxDiskSize;
+
+    // {local-sort.max-num-file-handles}
+    // 外部归并排序的最大输入数。它限制了文件句柄的数量。
+    // 如果设置得过小，可能会导致中间合并。
+    // 但如果设置得过大，将会导致同时打开的文件过多，消耗内存并导致随机读取。
     private final int sortMaxFan;
-    private final String sortCompression;
+    private final String sortCompression;     // 溢出时的压缩算法
     private final IOManager ioManager;
 
-    private final RowType keyType;
-    private final RowType valueType;
+
+    private final RowType keyType;    // 当前 primary key 的 schema
+    private final RowType valueType;  // 当前 value 对应的 schema
+
+    // 压缩管理器
     private final CompactManager compactManager;
+    // key 比较器
     private final Comparator<InternalRow> keyComparator;
+    // 合并函数
     private final MergeFunction<KeyValue> mergeFunction;
     private final KeyValueFileWriterFactory writerFactory;
     private final boolean commitForceCompact;
     private final ChangelogProducer changelogProducer;
     @Nullable private final FieldsComparator userDefinedSeqComparator;
 
-    private final LinkedHashSet<DataFileMeta> newFiles;
+    private final LinkedHashSet<DataFileMeta> newFiles;                // 记录当前所有的新增文件信息
     private final LinkedHashSet<DataFileMeta> deletedFiles;
-    private final LinkedHashSet<DataFileMeta> newFilesChangelog;
+    private final LinkedHashSet<DataFileMeta> newFilesChangelog;       // 记录本次新增的 changelog 文件
+
     private final LinkedHashMap<String, DataFileMeta> compactBefore;
     private final LinkedHashSet<DataFileMeta> compactAfter;
     private final LinkedHashSet<DataFileMeta> compactChangelog;
 
-    private long newSequenceNumber;
-    private WriteBuffer writeBuffer;
+    private long newSequenceNumber;               // ?
+
+    private WriteBuffer writeBuffer;           // 当前数据所在的内存缓冲区
 
     public MergeTreeWriter(
             boolean writeBufferSpillable,
@@ -154,6 +171,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
                         ioManager);
     }
 
+    // 数据写内存
     @Override
     public void write(KeyValue kv) throws Exception {
         long sequenceNumber = newSequenceNumber();
@@ -200,6 +218,12 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
         }
     }
 
+    /***
+     * 将内存数据有序刷写入文件，落地形成 L0 层文件
+     * @param waitForLatestCompaction
+     * @param forcedFullCompaction
+     * @throws Exception
+     */
     private void flushWriteBuffer(boolean waitForLatestCompaction, boolean forcedFullCompaction)
             throws Exception {
         if (writeBuffer.size() > 0) {
@@ -209,11 +233,11 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
             final RollingFileWriter<KeyValue, DataFileMeta> changelogWriter =
                     changelogProducer == ChangelogProducer.INPUT
-                            ? writerFactory.createRollingChangelogFileWriter(0)
-                            : null;
-            final RollingFileWriter<KeyValue, DataFileMeta> dataWriter =
-                    writerFactory.createRollingMergeTreeFileWriter(0);
+                            ? writerFactory.createRollingChangelogFileWriter(0) : null;
 
+            final RollingFileWriter<KeyValue, DataFileMeta> dataWriter = writerFactory.createRollingMergeTreeFileWriter(0);
+
+            // 数据刷盘
             try {
                 writeBuffer.forEach(
                         keyComparator,
