@@ -37,7 +37,9 @@ import java.util.function.Function;
 
 import static org.apache.paimon.utils.SerializationUtils.newBytesType;
 
-/** Entry of a manifest file, representing an addition / deletion of a data file. */
+/**
+ * 一个清单文件的条目，表示数据文件的增加或删除。
+ **/
 public class ManifestEntry implements FileEntry {
 
     private final FileKind kind;

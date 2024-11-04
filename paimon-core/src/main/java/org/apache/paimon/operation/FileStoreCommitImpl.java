@@ -109,8 +109,12 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     private final IndexManifestFile indexManifestFile;
     private final FileStoreScan scan;
     private final int numBucket;
+    // manifest.target-file-size
+    // 建议的manifest文件大小
     private final MemorySize manifestTargetSize;
     private final MemorySize manifestFullCompactionSize;
+    // manifest.merge-min-count
+    // 为了避免频繁的清单合并，此参数指定要合并的最小 ManifestFileMeta 数量
     private final int manifestMergeMinCount;
     private final boolean dynamicPartitionOverwrite;
     @Nullable private final Comparator<InternalRow> keyComparator;
@@ -369,6 +373,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         List<IndexManifestEntry> appendHashIndexFiles = new ArrayList<>();
         List<IndexManifestEntry> compactDvIndexFiles = new ArrayList<>();
 
+        // 将本次的数据分类收集
         collectChanges(
                 committable.fileCommittables(),
                 appendTableFiles,
@@ -396,9 +401,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
         try {
             boolean skipOverwrite = false;
-            // partition filter is built from static or dynamic partition according to properties
+            // 分区过滤器是根据属性从静态或动态分区构建的
             Predicate partitionFilter = null;
             if (dynamicPartitionOverwrite) {
+                //  如果是动态分区覆盖， 则从新增文件信息中获取到所有的覆盖分区
                 if (appendTableFiles.isEmpty()) {
                     // in dynamic mode, if there is no changes to commit, no data will be deleted
                     skipOverwrite = true;
@@ -415,9 +421,9 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                                                             "Failed to get dynamic partition filter. This is unexpected."));
                 }
             } else {
-                partitionFilter =
-                        createPartitionPredicate(partition, partitionType, partitionDefaultName);
-                // sanity check, all changes must be done within the given partition
+                // 如果是非动态分区覆盖， 则创建单一的静态过滤器
+                partitionFilter = createPartitionPredicate(partition, partitionType, partitionDefaultName);
+                // 校验写入文件是否符合分区条件
                 if (partitionFilter != null) {
                     for (ManifestEntry entry : appendTableFiles) {
                         if (!partitionFilter.test(entry.partition())) {
@@ -429,16 +435,16 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 }
             }
 
-            // overwrite new files
+            // 执行 overwrite 事物操作
             if (!skipOverwrite) {
-                attempts +=
-                        tryOverwrite(
+                attempts += tryOverwrite(
                                 partitionFilter,
                                 appendTableFiles,
                                 appendHashIndexFiles,
                                 committable.identifier(),
                                 committable.watermark(),
                                 committable.logOffsets());
+
                 generatedSnapshot += 1;
             }
 
@@ -560,6 +566,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         return fileIO;
     }
 
+    // 分类收集本次变更的相关事件集合
     private void collectChanges(
             List<CommitMessage> commitMessages,
             List<ManifestEntry> appendTableFiles,
@@ -681,28 +688,23 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             Map<Integer, Long> logOffsets) {
         int cnt = 0;
         while (true) {
+            // 从当前文件中读取最新的 snapshot
             Snapshot latestSnapshot = snapshotManager.latestSnapshot();
 
             cnt++;
             List<ManifestEntry> changesWithOverwrite = new ArrayList<>();
             List<IndexManifestEntry> indexChangesWithOverwrite = new ArrayList<>();
             if (latestSnapshot != null) {
+                // 读取最后一次snapshot 的当前分区所有有效的 manifest
                 List<ManifestEntry> currentEntries =
-                        scan.withSnapshot(latestSnapshot)
-                                .withPartitionFilter(partitionFilter)
-                                .plan()
-                                .files();
+                        scan.withSnapshot(latestSnapshot).withPartitionFilter(partitionFilter).plan().files();
+                // 将匹配到的所有文件增加删除标志，标识文件被删除
                 for (ManifestEntry entry : currentEntries) {
                     changesWithOverwrite.add(
-                            new ManifestEntry(
-                                    FileKind.DELETE,
-                                    entry.partition(),
-                                    entry.bucket(),
-                                    entry.totalBuckets(),
-                                    entry.file()));
+                            new ManifestEntry(FileKind.DELETE, entry.partition(), entry.bucket(), entry.totalBuckets(), entry.file()));
                 }
 
-                // collect index files
+                // 同样的将索引文件增加 删除标识
                 if (latestSnapshot.indexManifest() != null) {
                     List<IndexManifestEntry> entries =
                             indexManifestFile.read(latestSnapshot.indexManifest());
@@ -713,6 +715,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                     }
                 }
             }
+
+            // 整理收集当前的完整变更信息， 包含 overwrite 对历史文件的删除标记
             changesWithOverwrite.addAll(changes);
             indexChangesWithOverwrite.addAll(indexFiles);
 
@@ -748,7 +752,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             String branchName,
             @Nullable String newStatsFileName) {
 
-        // 新增 snapshot = last snapshot + 1
+        // TODO : 为待提交的 snapshot 生成 ID
         long newSnapshotId = latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
 
         // 基于最新的 snapshot ，确定 snapshot 存储位置
@@ -766,9 +770,10 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             }
         }
 
+
+        // TODO : 检查待提交的snapshot 跟 表中最新的 snapshot 是否有冲突
         if (latestSnapshot != null && conflictCheck.shouldCheck(latestSnapshot.id())) {
-            // latestSnapshotId is different from the snapshot id we've checked for conflicts,
-            // so we have to check again
+            // latestSnapshotId 与我们已检查冲突的snapshot ID 不同，因此我们必须再次检查
             noConflictsOrFail(latestSnapshot.commitUser(), latestSnapshot, tableFiles);
         }
 
@@ -786,19 +791,18 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             Long currentWatermark = watermark;
             String previousIndexManifest = null;
 
-
             // 记录历史 manifest 文件
             if (latestSnapshot != null) {
                 // 获取提交之前的总的数据量
                 previousTotalRecordCount = latestSnapshot.totalRecordCount(scan);
 
-                // 读取之前所有有效的 manifest 文件
+                // 读取上个版本的 manifest集合 - base + delta
                 List<ManifestFileMeta> previousManifests = latestSnapshot.dataManifests(manifestList);
 
                 // read all previous manifest files
                 oldMetas.addAll(previousManifests);
 
-                // read the last snapshot to complete the bucket's offsets when logOffsets does not contain all buckets
+                // 读取最后一个快照以补全 bucket 的偏移，当 logOffsets 未包含所有 bucket 时
                 // log 文件
                 Map<Integer, Long> latestLogOffsets = latestSnapshot.logOffsets();
 
@@ -819,7 +823,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
             // merge manifest files with changes
             // 合并历史 Manifest 文件与新的
-            newMetas.addAll(ManifestFileMeta.merge(
+            newMetas.addAll(
+                    ManifestFileMeta.merge(
                             oldMetas,
                             manifestFile,
                             manifestTargetSize.getBytes(),
@@ -827,14 +832,14 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                             manifestFullCompactionSize.getBytes(),
                             partitionType));
 
-            // 写入一个新的 manifest 文件
+            // 写入一个新的 manifest-list base 文件
             previousChangesListName = manifestList.write(newMetas);
 
             // 记录写入后的总的数据量
             long deltaRecordCount = Snapshot.recordCountAdd(tableFiles) - Snapshot.recordCountDelete(tableFiles);
             long totalRecordCount = previousTotalRecordCount + deltaRecordCount;
 
-            // 写入新增的 manifest 文件
+            // 对于当前未提交的 manifest , xieru
             List<ManifestFileMeta> newChangesManifests = manifestFile.write(tableFiles);
             newMetas.addAll(newChangesManifests);
             newChangesListName = manifestList.write(newChangesManifests);
@@ -889,7 +894,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 statsFileName);
 
         } catch (Throwable e) {
-            // fails when preparing for commit, we should clean up
+            // 如果提交过程中发生错误， 则清理 当前写入的中间 manifest 文件
             cleanUpTmpManifests(
                     previousChangesListName,
                     newChangesListName,
@@ -925,11 +930,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             if (lock != null) {
                 success = lock.runWithLock(
                                 () ->
-                                        // fs.rename may not returns false if target file
-                                        // already exists, or even not atomic
-                                        // as we're relying on external locking, we can first
-                                        // check if file exist then rename to work around this
-                                        // case
+                                        // fs.rename 可能不会返回 false 即使目标文件已存在，或者操作甚至不是原子的
+                                        // 由于我们依赖外部锁定，我们可以先检查文件是否存在，然后重命名以解决这种情况
                                         !fileIO.exists(newSnapshotPath) && callable.call());
             } else {
                 success = callable.call();
@@ -1009,18 +1011,28 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 SimpleFileEntry.from(changes));
     }
 
+    /***
+     * 版本冲突性校验 ：
+     *    1. 首先最新的待提交 snapshot 与 已提交最新的 snapshot 是否存在 manifest 冲突
+     *    2. 检查 当待提交 snaphsot 加入进来以后，是否符合 lsm 规范
+     *
+     * @param baseEntries         当前表中最后一个 snapshot 的所有变更文件
+     * @param changes             当前新增的 snapshot 的文件变更信息
+     */
     private void noConflictsOrFail(
             String baseCommitUser,
-            List<SimpleFileEntry> baseEntries,      // 当前有效的SST文件
-            List<SimpleFileEntry> changes) {        // 当前新增的 SST 文件
+            List<SimpleFileEntry> baseEntries,
+            List<SimpleFileEntry> changes) {
 
-        // 当前所有的 SST 综合
+        // 当前所有的 entry 集合， 包含已提交的最后一个 snapshot 与未提交 snapshot 的 合并 entry 类型
         List<SimpleFileEntry> allEntries = new ArrayList<>(baseEntries);
         allEntries.addAll(changes);
 
         Collection<SimpleFileEntry> mergedEntries;
 
-        // TODO-1 :
+        // TODO-1 : 合并所有的 Entry 信息，包含当前所有有效的entry 与 新增的 Entry 事件
+        //          返回当前有效的 entry 视图(去除已删除)
+        //          合并过程中判断说过有合并的逻辑失败情况，如果有失败，标识当前合并有冲突，
         try {
             // merge manifest entries and also check if the files we want to delete are still there
             mergedEntries = FileEntry.mergeEntries(allEntries);
@@ -1038,12 +1050,11 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             throw conflictException.getRight();
         }
 
-        // fast exit for file store without keys
-        if (keyComparator == null) {
-            return;
-        }
+        // TODO-2 : 判断最新的合并树, 是否符合规范限制
+        //          对于 level >= 2 层级的所有文件，必须保证文件的全局有序性
+        if (keyComparator == null) return;
 
-        // TODO-2 : level >=1 的所有 SST 是否key 范围有问题
+        // 收集 level >= 2 的所有有效的 entry 信息
         Map<LevelIdentifier, List<SimpleFileEntry>> levels = new HashMap<>();
         for (SimpleFileEntry entry : mergedEntries) {
             int level = entry.level();
@@ -1053,10 +1064,12 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         }
 
         for (List<SimpleFileEntry> entries : levels.values()) {
+            // 对每个 level 的所有 entry 进行按照 minKey 进行排序
             entries.sort((a, b) -> keyComparator.compare(a.minKey(), b.minKey()));
             for (int i = 0; i + 1 < entries.size(); i++) {
                 SimpleFileEntry a = entries.get(i);
                 SimpleFileEntry b = entries.get(i + 1);
+                // 判断 相邻之间 entry 是否有 key 重叠
                 if (keyComparator.compare(a.maxKey(), b.minKey()) >= 0) {
                     Pair<RuntimeException, RuntimeException> conflictException =
                             createConflictException(

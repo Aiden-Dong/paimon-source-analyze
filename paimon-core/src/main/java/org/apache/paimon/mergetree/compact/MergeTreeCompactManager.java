@@ -112,8 +112,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
         if (fullCompaction) {
             Preconditions.checkState(
                     taskFuture == null,
-                    "A compaction task is still running while the user "
-                            + "forces a new compaction. This is unexpected.");
+                    "A compaction task is still running while the user forces a new compaction. This is unexpected.");
             if (LOG.isDebugEnabled()) {
                 LOG.debug(
                         "Trigger forced full compaction. Picking from the following runs\n{}",
@@ -131,8 +130,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                     strategy.pick(levels.numberOfLevels(), runs)
                             .filter(unit -> unit.files().size() > 0)
                             .filter(
-                                    unit ->
-                                            unit.files().size() > 1
+                                    unit -> unit.files().size() > 1
                                                     || unit.files().get(0).level()
                                                             != unit.outputLevel());
         }
@@ -140,16 +138,14 @@ public class MergeTreeCompactManager extends CompactFutureManager {
         optionalUnit.ifPresent(
                 unit -> {
                     /*
-                     * As long as there is no older data, We can drop the deletion.
-                     * If the output level is 0, there may be older data not involved in compaction.
-                     * If the output level is bigger than 0, as long as there is no older data in
-                     * the current levels, the output is the oldest, so we can drop the deletion.
-                     * See CompactStrategy.pick.
+                     * 只要没有较旧的数据，我们就可以丢弃删除记录。
+                     * 如果输出级别为 0，可能存在未参与压缩的较旧数据。
+                     * 如果输出级别大于 0，只要当前级别中没有较旧数据，输出就是最旧的，因此可以丢弃删除记录。
+                     * 参见 CompactStrategy.pick。
                      */
                     boolean dropDelete =
                             unit.outputLevel() != 0
-                                    && (unit.outputLevel() >= levels.nonEmptyHighestLevel()
-                                            || deletionVectorsEnabled);
+                                    && (unit.outputLevel() >= levels.nonEmptyHighestLevel() || deletionVectorsEnabled);
 
                     if (LOG.isDebugEnabled()) {
                         LOG.debug(
@@ -175,8 +171,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     }
 
     private void submitCompaction(CompactUnit unit, boolean dropDelete) {
-        MergeTreeCompactTask task =
-                new MergeTreeCompactTask(
+        MergeTreeCompactTask task = new MergeTreeCompactTask(
                         keyComparator,
                         compactionFileSize,
                         rewriter,

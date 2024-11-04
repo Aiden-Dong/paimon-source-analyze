@@ -33,10 +33,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Universal Compaction Style is a compaction style, targeting the use cases requiring lower write
- * amplification, trading off read amplification and space amplification.
+ * 通用压缩风格是一种压缩风格，适用于需要较低写放大的用例，同时在一定程度上牺牲读取放大和空间放大。
  *
- * <p>See RocksDb Universal-Compaction:
+ * <p>参考 RocksDb 通用压缩:
  * https://github.com/facebook/rocksdb/wiki/Universal-Compaction.
  */
 public class UniversalCompaction implements CompactStrategy {
@@ -70,9 +69,9 @@ public class UniversalCompaction implements CompactStrategy {
     public Optional<CompactUnit> pick(int numLevels, List<LevelSortedRun> runs) {
         int maxLevel = numLevels - 1;
 
+        // 如果是设置了执行 compacation 的时间范围， 则按时间进行 compaction
         if (opCompactionInterval != null) {
-            if (lastOptimizedCompaction == null
-                    || currentTimeMillis() - lastOptimizedCompaction > opCompactionInterval) {
+            if (lastOptimizedCompaction == null || currentTimeMillis() - lastOptimizedCompaction > opCompactionInterval) {
                 LOG.debug("Universal compaction due to optimized compaction interval");
                 updateLastOptimizedCompaction();
                 return Optional.of(CompactUnit.fromLevelRuns(maxLevel, runs));

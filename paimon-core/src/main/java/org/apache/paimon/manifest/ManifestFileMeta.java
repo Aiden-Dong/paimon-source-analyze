@@ -139,13 +139,13 @@ public class ManifestFileMeta {
     }
 
     /**
-     * Merge several {@link ManifestFileMeta}s. {@link ManifestEntry}s representing first adding and
-     * then deleting the same data file will cancel each other.
+     *  合并多个 {@link ManifestFileMeta}。
+     *  表示先添加然后删除相同数据文件的 {@link ManifestEntry} 会相互抵消。
      *
      * <p>NOTE: This method is atomic.
      */
     public static List<ManifestFileMeta> merge(
-            List<ManifestFileMeta> input,
+            List<ManifestFileMeta> input,   // 历史 manifest 文件集合
             ManifestFile manifestFile,
             long suggestedMetaSize,
             int suggestedMinMetaCount,
@@ -163,6 +163,7 @@ public class ManifestFileMeta {
                             manifestFullCompactionSize,
                             partitionType);
 
+            // manifest minor compaction, 只做小 manifest 文件合并
             return fullCompacted.orElseGet(() -> tryMinorCompaction(
                                     input,
                                     newMetas,
@@ -188,12 +189,13 @@ public class ManifestFileMeta {
         List<ManifestFileMeta> result = new ArrayList<>();
         List<ManifestFileMeta> candidates = new ArrayList<>();
         long totalSize = 0;
+
         // merge existing small manifest files
         for (ManifestFileMeta manifest : input) {
             totalSize += manifest.fileSize;
             candidates.add(manifest);
             if (totalSize >= suggestedMetaSize) {
-                // reach suggested file size, perform merging and produce new file
+                // 达到建议的文件大小，执行合并并生成新文件
                 mergeCandidates(candidates, manifestFile, result, newMetas);
                 candidates.clear();
                 totalSize = 0;
@@ -214,11 +216,13 @@ public class ManifestFileMeta {
             ManifestFile manifestFile,
             List<ManifestFileMeta> result,
             List<ManifestFileMeta> newMetas) {
+
         if (candidates.size() == 1) {
             result.add(candidates.get(0));
             return;
         }
 
+        // 合并小的 Manifest 文件， 生成一个大的 manifest 文件
         Map<Identifier, ManifestEntry> map = new LinkedHashMap<>();
         FileEntry.mergeEntries(manifestFile, candidates, map);
         if (!map.isEmpty()) {
@@ -228,21 +232,26 @@ public class ManifestFileMeta {
         }
     }
 
+    // 合并 manifest 文件 ，降低 Manifest-list 压力
     public static Optional<List<ManifestFileMeta>> tryFullCompaction(
             List<ManifestFileMeta> inputs,
             List<ManifestFileMeta> newMetas,
             ManifestFile manifestFile,
             long suggestedMetaSize,
-            long sizeTrigger,
+            long sizeTrigger,          //  manifest.merge-min-count
             RowType partitionType)
             throws Exception {
-        // 1. should trigger full compaction
 
-        List<ManifestFileMeta> base = new ArrayList<>();
+
+
+        // TODO - 1 : 判断是否需要合并 Manifest 文件
+        List<ManifestFileMeta> base = new ArrayList<>();  // ?
         int totalManifestSize = 0;
         int i = 0;
         for (; i < inputs.size(); i++) {
             ManifestFileMeta file = inputs.get(i);
+
+            // 如果当前 manifest-list 文件过大， 则 添加到
             if (file.numDeletedFiles == 0 && file.fileSize >= suggestedMetaSize) {
                 base.add(file);
                 totalManifestSize += file.fileSize;
@@ -251,6 +260,7 @@ public class ManifestFileMeta {
             }
         }
 
+        // 汇算
         List<ManifestFileMeta> delta = new ArrayList<>();
         long deltaDeleteFileNum = 0;
         long totalDeltaFileSize = 0;
@@ -262,28 +272,28 @@ public class ManifestFileMeta {
             totalDeltaFileSize += file.fileSize();
         }
 
+
+        // 查看总的 manifest 文件大小
         if (totalDeltaFileSize < sizeTrigger) {
             return Optional.empty();
         }
 
-        // 2. do full compaction
+        // TODO -2 : 执行 Compation 操作
+        LOG.info("Start Manifest File Full Compaction, pick the number of delete file: {}, total manifest file size: {}", deltaDeleteFileNum, totalManifestSize);
 
-        LOG.info(
-                "Start Manifest File Full Compaction, pick the number of delete file: {}, total manifest file size: {}",
-                deltaDeleteFileNum,
-                totalManifestSize);
-
-        // 2.1. try to skip base files by partition filter
+        //  2.1 尝试通过分区过滤器跳过base文件
 
         Map<Identifier, ManifestEntry> deltaMerged = new LinkedHashMap<>();
         FileEntry.mergeEntries(manifestFile, delta, deltaMerged);
-
         List<ManifestFileMeta> result = new ArrayList<>();
+
         int j = 0;
+
         if (partitionType.getFieldCount() > 0) {
+
+            // 计算删除的分区
             Set<BinaryRow> deletePartitions = computeDeletePartitions(deltaMerged);
-            Optional<Predicate> predicateOpt =
-                    convertPartitionToPredicate(partitionType, deletePartitions);
+            Optional<Predicate> predicateOpt = convertPartitionToPredicate(partitionType, deletePartitions);
 
             if (predicateOpt.isPresent()) {
                 Predicate predicate = predicateOpt.get();
@@ -301,13 +311,13 @@ public class ManifestFileMeta {
                     }
                 }
             } else {
-                // There is no DELETE Entry in Delta, Base don't need compaction
+                // Delta 中没有 DELETE 条目，Base 无需压缩
                 j = base.size();
                 result.addAll(base);
             }
         }
 
-        // 2.2. try to skip base files by reading entries
+        // 2.2. 尝试通过读取条目跳过base文件
 
         Set<Identifier> deleteEntries = new HashSet<>();
         deltaMerged.forEach(
@@ -339,7 +349,7 @@ public class ManifestFileMeta {
             }
         }
 
-        // 2.3. merge
+        // 2.3. 合并操作
 
         RollingFileWriter<ManifestEntry, ManifestFileMeta> writer = manifestFile.createRollingWriter();
         Exception exception = null;
@@ -350,9 +360,8 @@ public class ManifestFileMeta {
                 writer.write(entry);
             }
 
-            // 2.3.2 merge base files
-            for (Supplier<List<ManifestEntry>> reader :
-                    FileEntry.readManifestEntries(manifestFile, base.subList(j, base.size()))) {
+            // 2.3.2 merge base files, 写入不在 delete 文件中的新增文间
+            for (Supplier<List<ManifestEntry>> reader : FileEntry.readManifestEntries(manifestFile, base.subList(j, base.size()))) {
                 for (ManifestEntry entry : reader.get()) {
                     checkArgument(entry.kind() == FileKind.ADD);
                     if (!deleteEntries.contains(entry.identifier())) {
@@ -361,7 +370,7 @@ public class ManifestFileMeta {
                 }
             }
 
-            // 2.3.3 merge deltaMerged
+            // 2.3.3 合并 delta 文件
             for (ManifestEntry entry : deltaMerged.values()) {
                 if (entry.kind() == FileKind.ADD) {
                     writer.write(entry);
@@ -377,6 +386,7 @@ public class ManifestFileMeta {
             writer.close();
         }
 
+        // 返回新落地的 manifest 集合
         List<ManifestFileMeta> merged = writer.result();
         result.addAll(merged);
         newMetas.addAll(merged);
@@ -397,16 +407,17 @@ public class ManifestFileMeta {
 
     private static Optional<Predicate> convertPartitionToPredicate(
             RowType partitionType, Set<BinaryRow> partitions) {
-        Optional<Predicate> predicateOpt;
-        if (!partitions.isEmpty()) {
-            RowDataToObjectArrayConverter rowArrayConverter =
-                    new RowDataToObjectArrayConverter(partitionType);
 
-            List<Predicate> predicateList =
-                    partitions.stream()
+        Optional<Predicate> predicateOpt;
+
+        if (!partitions.isEmpty()) {
+            RowDataToObjectArrayConverter rowArrayConverter = new RowDataToObjectArrayConverter(partitionType);
+
+            List<Predicate> predicateList = partitions.stream()
                             .map(rowArrayConverter::convert)
                             .map(values -> createPartitionPredicate(partitionType, values))
                             .collect(Collectors.toList());
+
             predicateOpt = Optional.of(PredicateBuilder.or(predicateList));
         } else {
             predicateOpt = Optional.empty();

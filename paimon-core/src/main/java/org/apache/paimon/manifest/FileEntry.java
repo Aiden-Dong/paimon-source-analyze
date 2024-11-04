@@ -119,8 +119,10 @@ public interface FileEntry {
             ManifestFile manifestFile,
             List<ManifestFileMeta> manifestFiles,
             Map<Identifier, ManifestEntry> map) {
-        List<Supplier<List<ManifestEntry>>> manifestReadFutures =
-                readManifestEntries(manifestFile, manifestFiles);
+
+        // 读取所有的 manifest 文件， 加载所有有效的 data entry 信息
+        List<Supplier<List<ManifestEntry>>> manifestReadFutures = readManifestEntries(manifestFile, manifestFiles);
+
         for (Supplier<List<ManifestEntry>> taskResult : manifestReadFutures) {
             mergeEntries(taskResult.get(), map);
         }
@@ -128,13 +130,12 @@ public interface FileEntry {
 
     static <T extends FileEntry> void mergeEntries(Iterable<T> entries, Map<Identifier, T> map) {
         for (T entry : entries) {
+            // 获取当前 enry 所属的  identifier (partition-bucket-level-filename)
             Identifier identifier = entry.identifier();
             switch (entry.kind()) {
                 case ADD:
                     Preconditions.checkState(
-                            !map.containsKey(identifier),
-                            "Trying to add file %s which is already added.",
-                            identifier);
+                            !map.containsKey(identifier), "Trying to add file %s which is already added.", identifier);
                     map.put(identifier, entry);
                     break;
                 case DELETE:

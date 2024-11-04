@@ -167,23 +167,20 @@ public class CoreOptions implements Serializable {
     public static final ConfigOption<MemorySize> MANIFEST_TARGET_FILE_SIZE =
             key("manifest.target-file-size")
                     .memoryType()
-                    .defaultValue(MemorySize.ofMebiBytes(8))
+                    .defaultValue(MemorySize.ofMebiBytes(8)) // 8M
                     .withDescription("Suggested file size of a manifest file.");
 
     public static final ConfigOption<MemorySize> MANIFEST_FULL_COMPACTION_FILE_SIZE =
             key("manifest.full-compaction-threshold-size")
                     .memoryType()
-                    .defaultValue(MemorySize.ofMebiBytes(16))
-                    .withDescription(
-                            "The size threshold for triggering full compaction of manifest.");
+                    .defaultValue(MemorySize.ofMebiBytes(16))  // 16M
+                    .withDescription("触发manifest 完全压缩的大小阈值.");
 
     public static final ConfigOption<Integer> MANIFEST_MERGE_MIN_COUNT =
             key("manifest.merge-min-count")
                     .intType()
                     .defaultValue(30)
-                    .withDescription(
-                            "To avoid frequent manifest merges, this parameter specifies the minimum number "
-                                    + "of ManifestFileMeta to merge.");
+                    .withDescription("为了避免频繁的清单合并，此参数指定要合并的最小 ManifestFileMeta 数量。");
 
     public static final ConfigOption<String> PARTITION_DEFAULT_NAME =
             key("partition.default-name")
