@@ -52,14 +52,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/** Factory to create {@link RecordReader}s for reading {@link KeyValue} files. */
+/****
+ * 工厂，用于创建 {@link RecordReader} 以读取 {@link KeyValue} 文件。
+ **/
 public class KeyValueFileReaderFactory implements FileReaderFactory<KeyValue> {
 
-    private final FileIO fileIO;
-    private final SchemaManager schemaManager;
-    private final TableSchema schema;
-    private final RowType keyType;
-    private final RowType valueType;
+    private final FileIO fileIO;                   // 文件操作句柄 IO
+    private final SchemaManager schemaManager;     // 表结构管理
+    private final TableSchema schema;              // 表结构
+    private final RowType keyType;                 // key 字段类型
+    private final RowType valueType;               // value 字段类型
 
     private final BulkFormatMapping.BulkFormatMappingBuilder bulkFormatMappingBuilder;
     private final DataFilePathFactory pathFactory;
@@ -98,12 +100,13 @@ public class KeyValueFileReaderFactory implements FileReaderFactory<KeyValue> {
         return createRecordReader(file.schemaId(), file.fileName(), file.fileSize(), file.level());
     }
 
-    public RecordReader<KeyValue> createRecordReader(
-            long schemaId, String fileName, long fileSize, int level) throws IOException {
+    public RecordReader<KeyValue> createRecordReader(long schemaId, String fileName, long fileSize, int level) throws IOException {
+        // orc 文件读取方式
         if (fileSize >= asyncThreshold && fileName.endsWith("orc")) {
             return new AsyncRecordReader<>(
                     () -> createRecordReader(schemaId, fileName, level, false, 2, fileSize));
         }
+
         return createRecordReader(schemaId, fileName, level, true, null, fileSize);
     }
 
@@ -115,6 +118,8 @@ public class KeyValueFileReaderFactory implements FileReaderFactory<KeyValue> {
             @Nullable Integer orcPoolSize,
             long fileSize)
             throws IOException {
+
+        // 文件格式标记
         String formatIdentifier = DataFilePathFactory.formatIdentifier(fileName);
 
         Supplier<BulkFormatMapping> formatSupplier =
@@ -124,29 +129,25 @@ public class KeyValueFileReaderFactory implements FileReaderFactory<KeyValue> {
                                 schema,
                                 schemaId == schema.id() ? schema : schemaManager.schema(schemaId));
 
-        BulkFormatMapping bulkFormatMapping =
-                reuseFormat
+        BulkFormatMapping bulkFormatMapping = reuseFormat
                         ? bulkFormatMappings.computeIfAbsent(
                                 new FormatKey(schemaId, formatIdentifier),
                                 key -> formatSupplier.get())
                         : formatSupplier.get();
         Path filePath = pathFactory.toPath(fileName);
 
-        RecordReader<InternalRow> fileRecordReader =
-                new FileRecordReader(
+        RecordReader<InternalRow> fileRecordReader = new FileRecordReader(
                         bulkFormatMapping.getReaderFactory(),
                         orcPoolSize == null
                                 ? new FormatReaderContext(fileIO, filePath, fileSize)
-                                : new OrcFormatReaderContext(
-                                        fileIO, filePath, fileSize, orcPoolSize),
+                                : new OrcFormatReaderContext(fileIO, filePath, fileSize, orcPoolSize),
                         bulkFormatMapping.getIndexMapping(),
                         bulkFormatMapping.getCastMapping(),
                         PartitionUtils.create(bulkFormatMapping.getPartitionPair(), partition));
 
         Optional<DeletionVector> deletionVector = dvFactory.create(fileName);
         if (deletionVector.isPresent() && !deletionVector.get().isEmpty()) {
-            fileRecordReader =
-                    new ApplyDeletionVectorReader<>(fileRecordReader, deletionVector.get());
+            fileRecordReader = new ApplyDeletionVectorReader<>(fileRecordReader, deletionVector.get());
         }
 
         return new KeyValueDataFileRecordReader(fileRecordReader, keyType, valueType, level);

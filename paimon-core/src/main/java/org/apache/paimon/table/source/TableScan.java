@@ -25,9 +25,7 @@ import org.apache.paimon.table.Table;
 import java.util.List;
 
 /**
- * A scan of {@link Table} to generate {@link Split} splits.
- *
- * @since 0.4.0
+ * 扫描 {@link Table} 以生成 {@link Split} 切片。
  */
 @Public
 public interface TableScan {
@@ -35,14 +33,10 @@ public interface TableScan {
     /** Plan splits, throws {@link EndOfScanException} if the scan is ended. */
     Plan plan();
 
-    /** List partitions. */
+    // 列出所有分区
     List<BinaryRow> listPartitions();
 
-    /**
-     * Plan of scan.
-     *
-     * @since 0.4.0
-     */
+    // 读取计划
     @Public
     interface Plan {
         List<Split> splits();

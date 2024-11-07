@@ -29,48 +29,41 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * A variant of the loser tree. In the LSM-Tree architecture, there will be duplicate Keys in
- * multiple {@link RecordReader}, and these Keys need to be merged. In the loser tree, we return in
- * the order of the Keys, but because the returned objects may be reused in the {@link RecordReader}
- * or the {@link MergeFunction}, for a single {@link RecordReader}, we cannot get the next Key
- * immediately after returning a Key, and we need to wait until the same Key in all {@link
- * RecordReader} is returned before proceeding to the next Key.
+ * LoserTree 的变体。在LSM-Tree架构中，多个RecordReader中会出现重复的key，这些key需要合并。
+ * 在LoserTree中，我们按照key的顺序返回，但是由于返回的对象可能在RecordReader或MergeFunction中重用，
+ * 对于单个RecordReader，我们不能在返回一个key后立即获取下一个键，我们需要等到所有RecordReader中的相同键都返回后才能继续处理下一个key。
  *
- * <p>The process of building the loser tree is the same as a regular loser tree. The difference is
- * that in the process of adjusting the tree, we need to record the index of the same key and the
- * state of the winner/loser for subsequent quick adjustment of the position of the winner.
+ * 构建LoserTree的过程与普通LoserTree相同。
+ * 不同之处在于，在调整树的过程中，我们需要记录相同key的索引以及赢家/输家的状态，以便后续快速调整赢家位置。
  *
  * <p>Detailed design can refer to https://cwiki.apache.org/confluence/x/9Ak0Dw.
  */
 public class LoserTree<T> implements Closeable {
-    private final int[] tree;
+    private final int[] tree;                      // loser-tree
     private final int size;
-    private final List<LeafIterator<T>> leaves;
+    private final List<LeafIterator<T>> leaves;    // 文件迭代器
 
     /**
-     * if comparator.compare('a', 'b') > 0, then 'a' is the winner. In the following implementation,
-     * we always let 'a' represent the parent node.
+     * 如果比较器比较 'a' 和 'b' 的结果大于 0，则认为 'a' 是赢家。
+     * 在以下实现中，我们始终假设 'a' 代表父节点。
      */
     private final Comparator<T> firstComparator;
 
-    /** same as firstComparator, but mainly used to compare sequenceNumber. */
+    /**
+     * 与 firstComparator 相同，但主要用于比较序列号。
+     **/
     private final Comparator<T> secondComparator;
 
     private boolean initialized;
 
-    public LoserTree(
-            List<RecordReader<T>> nextBatchReaders,
-            Comparator<T> firstComparator,
-            Comparator<T> secondComparator) {
+    public LoserTree(List<RecordReader<T>> nextBatchReaders, Comparator<T> firstComparator, Comparator<T> secondComparator) {
         this.size = nextBatchReaders.size();
         this.leaves = new ArrayList<>(size);
         this.tree = new int[size];
-        // if e1 and e2 are both null, it doesn't matter who becomes the new winner. But if
-        // firstComparator returns 0, it means that secondComparator must be used to compare again.
-        this.firstComparator =
-                (e1, e2) -> e1 == null ? -1 : (e2 == null ? 1 : firstComparator.compare(e1, e2));
-        this.secondComparator =
-                (e1, e2) -> e1 == null ? -1 : (e2 == null ? 1 : secondComparator.compare(e1, e2));
+        // 如果 e1 和 e2 都为空，那么谁成为新的赢家并不重要。
+        // 但是，如果 firstComparator 返回 0，则意味着必须使用 secondComparator 再次比较。
+        this.firstComparator = (e1, e2) -> e1 == null ? -1 : (e2 == null ? 1 : firstComparator.compare(e1, e2));
+        this.secondComparator = (e1, e2) -> e1 == null ? -1 : (e2 == null ? 1 : secondComparator.compare(e1, e2));
         this.initialized = false;
 
         for (RecordReader<T> reader : nextBatchReaders) {
@@ -120,8 +113,7 @@ public class LoserTree<T> implements Closeable {
     }
 
     /**
-     * Adjust the winner from bottom to top. Using different {@link State}, we can quickly compare
-     * whether all the current same keys have been processed.
+     * 从底部向上调整赢家。使用不同的 {@link State}，我们可以快速比较当前所有相同的键是否都已处理。
      */
     private void adjust(int winner) {
         for (int parent = (winner + this.size) / 2; parent > 0 && winner >= 0; parent /= 2) {
@@ -311,7 +303,7 @@ public class LoserTree<T> implements Closeable {
                         iterator.releaseBatch();
                         iterator = null;
                     }
-
+                    // 读取一个 batch 数据，并返回该 batch 的迭代器
                     iterator = reader.readBatch();
                     if (iterator == null) {
                         endOfInput = true;

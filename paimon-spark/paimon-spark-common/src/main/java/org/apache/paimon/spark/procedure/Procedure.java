@@ -21,24 +21,26 @@ package org.apache.paimon.spark.procedure;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.StructType;
 
-/** An interface that defines an executable stored procedure. */
+/**
+ * 定义一个可执行存储过程的接口。
+ **/
 public interface Procedure {
 
-    /** Returns the input parameters of stored procedure. */
+    // 返回存储过程的输入参数。
     ProcedureParameter[] parameters();
 
-    /** Returns the type of rows produced by stored procedure. */
+    // 返回存储过程生成的行的类型。
     StructType outputType();
 
     /**
-     * Executes the given stored procedure.
+     * 执行给定的存储过程。
      *
-     * @param args Input arguments.
-     * @return The result of executing stored procedure with the given arguments.
+     * @param args 输入参数。
+     * @return 使用给定参数执行存储过程的结果。
      */
     InternalRow[] call(InternalRow args);
 
-    /** Returns the description of stored procedure. */
+    // 返回存储过程的描述
     default String description() {
         return this.getClass().toString();
     }

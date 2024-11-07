@@ -65,26 +65,31 @@ import static org.apache.paimon.predicate.PredicateBuilder.containsFields;
 import static org.apache.paimon.predicate.PredicateBuilder.splitAnd;
 
 /**
- * An implementation for {@link KeyValueFileStore}, this class handle LSM merging and changelog row
- * kind things, it will force reading fields such as sequence and row_kind.
+ * {@link KeyValueFileStore} 的实现，该类处理 LSM 合并和变更日志行类型的操作
+ * 它将强制读取如 sequence 和 row_kind 等字段。
  *
- * @see RawFileSplitRead If in batch mode and reading raw files, it is recommended to use this read.
+ * @see RawFileSplitRead 如果处于批处理模式并且读取原始文件，推荐使用这种读取方式。
  */
 public class MergeFileSplitRead implements SplitRead<KeyValue> {
 
-    private final TableSchema tableSchema;
-    private final FileIO fileIO;
+    private final TableSchema tableSchema;           // 当前表的 Schema 信息
+
+    private final FileIO fileIO;                     // 用于读写的文件操作句柄
+
     private final KeyValueFileReaderFactory.Builder readerFactoryBuilder;
-    private final Comparator<InternalRow> keyComparator;
-    private final MergeFunctionFactory<KeyValue> mfFactory;
+    private final Comparator<InternalRow> keyComparator;                    // Key 比较器 RecordComparator
+    private final MergeFunctionFactory<KeyValue> mfFactory;                 // 合并函数工厂
+
+    // 合并排序器，用于对具有键重叠的读取器进行排序和合并。
     private final MergeSorter mergeSorter;
+
+    // sequence.field  - 生成主键表序列号的字段,序列号决定了哪个数据是最新的
     private final List<String> sequenceFields;
 
     @Nullable private int[][] keyProjectedFields;
 
-    @Nullable private List<Predicate> filtersForKeys;
-
-    @Nullable private List<Predicate> filtersForAll;
+    @Nullable private List<Predicate> filtersForKeys;          // key 过滤器
+    @Nullable private List<Predicate> filtersForAll;           // key value 过滤器
 
     @Nullable private int[][] pushdownProjection;
     @Nullable private int[][] outerProjection;
@@ -104,9 +109,8 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
         this.fileIO = readerFactoryBuilder.fileIO();
         this.keyComparator = keyComparator;
         this.mfFactory = mfFactory;
-        this.mergeSorter =
-                new MergeSorter(
-                        CoreOptions.fromMap(tableSchema.options()), keyType, valueType, null);
+
+        this.mergeSorter = new MergeSorter(CoreOptions.fromMap(tableSchema.options()), keyType, valueType, null);
         this.sequenceFields = options.sequenceField();
     }
 
@@ -126,23 +130,25 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
 
     @Override
     public MergeFileSplitRead withProjection(@Nullable int[][] projectedFields) {
-        if (projectedFields == null) {
-            return this;
-        }
+        if (projectedFields == null) return this;
 
         int[][] newProjectedFields = projectedFields;
+
+        // 如果改表有序列字段， 要确保所有的序列字段都在映射字段中
         if (sequenceFields.size() > 0) {
             // make sure projection contains sequence fields
+            // // 确保投影包含序列字段
             List<String> fieldNames = tableSchema.fieldNames();
+            // 基于 Schema 获取到 projectFields 字段名
             List<String> projectedNames = Projection.of(projectedFields).project(fieldNames);
-            int[] lackFields =
-                    sequenceFields.stream()
+            // 返回没有包含的 sequenceFields 的字段索引
+            int[] lackFields = sequenceFields.stream()
                             .filter(f -> !projectedNames.contains(f))
                             .mapToInt(fieldNames::indexOf)
                             .toArray();
+
             if (lackFields.length > 0) {
-                newProjectedFields =
-                        Arrays.copyOf(projectedFields, projectedFields.length + lackFields.length);
+                newProjectedFields = Arrays.copyOf(projectedFields, projectedFields.length + lackFields.length);
                 for (int i = 0; i < lackFields.length; i++) {
                     newProjectedFields[projectedFields.length + i] = new int[] {lackFields[i]};
                 }
@@ -152,6 +158,7 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
         AdjustedProjection projection = mfFactory.adjustProjection(newProjectedFields);
         this.pushdownProjection = projection.pushdownProjection;
         this.outerProjection = projection.outerProjection;
+
         if (pushdownProjection != null) {
             readerFactoryBuilder.withValueProjection(pushdownProjection);
             mergeSorter.setProjectedValueType(readerFactoryBuilder.projectedValueType());
@@ -250,25 +257,30 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
             @Nullable List<DeletionFile> deletionFiles,
             boolean keepDelete)
             throws IOException {
-        // Sections are read by SortMergeReader, which sorts and merges records by keys.
-        // So we cannot project keys or else the sorting will be incorrect.
+        // 部分由 SortMergeReader 读取，SortMergeReader 按键排序和合并记录。
+        // 所以我们不能投影键，否则排序将不正确。
+
+        // DeletionVector 可以高效地记录文件中已删除行的位置，然后在处理文件时用于过滤掉已删除的行。
         DeletionVector.Factory dvFactory = DeletionVector.factory(fileIO, files, deletionFiles);
-        KeyValueFileReaderFactory overlappedSectionFactory =
-                readerFactoryBuilder.build(partition, bucket, dvFactory, false, filtersForKeys);
-        KeyValueFileReaderFactory nonOverlappedSectionFactory =
-                readerFactoryBuilder.build(partition, bucket, dvFactory, false, filtersForAll);
+
+        // 按 key 过滤器创建读取工厂
+        KeyValueFileReaderFactory overlappedSectionFactory = readerFactoryBuilder.build(partition, bucket, dvFactory, false, filtersForKeys);
+
+        // 按照 key-value 过滤器创建 读取工厂
+        KeyValueFileReaderFactory nonOverlappedSectionFactory = readerFactoryBuilder.build(partition, bucket, dvFactory, false, filtersForAll);
 
         List<ReaderSupplier<KeyValue>> sectionReaders = new ArrayList<>();
-        MergeFunctionWrapper<KeyValue> mergeFuncWrapper =
-                new ReducerMergeFunctionWrapper(mfFactory.create(pushdownProjection));
+        MergeFunctionWrapper<KeyValue> mergeFuncWrapper = new ReducerMergeFunctionWrapper(mfFactory.create(pushdownProjection));
+
         for (List<SortedRun> section : new IntervalPartition(files, keyComparator).partition()) {
+            // 每个 List<SortedRun> 集合 之间， key 范围相互不重叠
             sectionReaders.add(
                     () ->
                             MergeTreeReaders.readerForSection(
                                     section,
-                                    section.size() > 1
-                                            ? overlappedSectionFactory
-                                            : nonOverlappedSectionFactory,
+                                    section.size() > 1 ?
+                                            overlappedSectionFactory :    // 如果 section > 1 使用 key 过滤器，因为涉及到不同的 sortedRun 之间的数据有新旧版本的问题，所以 value 过滤器没有意义
+                                            nonOverlappedSectionFactory,  // 如果 section == 1 则可以 keyvalue 都参与过滤， 加速查询
                                     keyComparator,
                                     createUdsComparator(),
                                     mergeFuncWrapper,
@@ -288,15 +300,15 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
             int bucket,
             List<DataFileMeta> files,
             @Nullable List<DeletionFile> deletionFiles,
-            boolean onlyFilterKey)
-            throws IOException {
-        KeyValueFileReaderFactory readerFactory =
-                readerFactoryBuilder.build(
+            boolean onlyFilterKey) throws IOException {
+
+        KeyValueFileReaderFactory readerFactory = readerFactoryBuilder.build(
                         partition,
                         bucket,
                         DeletionVector.factory(fileIO, files, deletionFiles),
                         true,
                         onlyFilterKey ? filtersForKeys : filtersForAll);
+
         List<ReaderSupplier<KeyValue>> suppliers = new ArrayList<>();
         for (DataFileMeta file : files) {
             suppliers.add(
@@ -304,8 +316,7 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
                         // We need to check extraFiles to be compatible with Paimon 0.2.
                         // See comments on DataFileMeta#extraFiles.
                         String fileName = changelogFile(file).orElse(file.fileName());
-                        return readerFactory.createRecordReader(
-                                file.schemaId(), fileName, file.fileSize(), file.level());
+                        return readerFactory.createRecordReader(file.schemaId(), fileName, file.fileSize(), file.level());
                     });
         }
 

@@ -51,6 +51,7 @@ public class SortMergeReaderWithMinHeap<T> implements SortMergeReader<T> {
         this.userKeyComparator = userKeyComparator;
         this.mergeFunctionWrapper = mergeFunctionWrapper;
 
+        // 用优先级队列实现的最小堆
         this.minHeap =
                 new PriorityQueue<>(
                         (e1, e2) -> {

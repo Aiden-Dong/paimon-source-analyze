@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * A table provides basic abstraction for table type and table scan and table read.
+ * 表提供了表类型、表扫描和表读取的基本抽象。
  *
  * @since 0.4.0
  */

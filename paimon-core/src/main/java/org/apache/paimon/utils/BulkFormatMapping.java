@@ -35,12 +35,14 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-/** Class with index mapping and bulk format. */
+/**
+ * 具有索引映射和批量格式的类
+ */
 public class BulkFormatMapping {
 
-    @Nullable private final int[] indexMapping;
-    @Nullable private final CastFieldGetter[] castMapping;
-    @Nullable private final Pair<int[], RowType> partitionPair;
+    @Nullable private final int[] indexMapping;                  // 数据索引映射
+    @Nullable private final CastFieldGetter[] castMapping;       // 数据转换映射
+    @Nullable private final Pair<int[], RowType> partitionPair;  // 分区字段
     private final FormatReaderFactory bulkFormat;
 
     public BulkFormatMapping(
@@ -88,9 +90,9 @@ public class BulkFormatMapping {
 
         private final FileFormatDiscover formatDiscover;
         private final KeyValueFieldsExtractor extractor;
-        private final int[][] keyProjection;
-        private final int[][] valueProjection;
-        @Nullable private final List<Predicate> filters;
+        private final int[][] keyProjection;               // key 投影关系
+        private final int[][] valueProjection;             // value 投影关系
+        @Nullable private final List<Predicate> filters;   // 谓词下推的数据过滤条件
 
         private BulkFormatMappingBuilder(
                 FileFormatDiscover formatDiscover,
@@ -105,53 +107,48 @@ public class BulkFormatMapping {
             this.filters = filters;
         }
 
-        public BulkFormatMapping build(
-                String formatIdentifier, TableSchema tableSchema, TableSchema dataSchema) {
-            List<DataField> tableKeyFields = extractor.keyFields(tableSchema);
-            List<DataField> tableValueFields = extractor.valueFields(tableSchema);
-            int[][] tableProjection =
-                    KeyValue.project(keyProjection, valueProjection, tableKeyFields.size());
+        public BulkFormatMapping build(String formatIdentifier, TableSchema tableSchema, TableSchema dataSchema) {
+            List<DataField> tableKeyFields = extractor.keyFields(tableSchema);      // 获取 key 的字段信息
+            List<DataField> tableValueFields = extractor.valueFields(tableSchema);  // 获取 value 的字段信息
+
+            // 返回表的完整视图 :
+            // RecordKey, sequenceField, recordKind, RecordValue
+            int[][] tableProjection = KeyValue.project(keyProjection, valueProjection, tableKeyFields.size());
 
             List<DataField> dataKeyFields = extractor.keyFields(dataSchema);
             List<DataField> dataValueFields = extractor.valueFields(dataSchema);
 
-            RowType keyType = new RowType(dataKeyFields);
-            RowType valueType = new RowType(dataValueFields);
-            RowType dataRecordType = KeyValue.schema(keyType, valueType);
+            RowType keyType = new RowType(dataKeyFields);            // key 数据类型
+            RowType valueType = new RowType(dataValueFields);        // value 数据类型
+            RowType dataRecordType = KeyValue.schema(keyType, valueType);  // 完整的数据类型  RecordKey, sequenceField, recordKind, RecordValue
 
-            int[][] dataKeyProjection =
-                    SchemaEvolutionUtil.createDataProjection(
-                            tableKeyFields, dataKeyFields, keyProjection);
-            int[][] dataValueProjection =
-                    SchemaEvolutionUtil.createDataProjection(
-                            tableValueFields, dataValueFields, valueProjection);
-            int[][] dataProjection =
-                    KeyValue.project(dataKeyProjection, dataValueProjection, dataKeyFields.size());
 
-            /*
-             * We need to create index mapping on projection instead of key and value separately
-             * here, for example
+            int[][] dataKeyProjection = SchemaEvolutionUtil.createDataProjection(tableKeyFields, dataKeyFields, keyProjection);           // 正确处理 key 的投影关系
+            int[][] dataValueProjection = SchemaEvolutionUtil.createDataProjection(tableValueFields, dataValueFields, valueProjection);   // 正确处理 value 的投影关系
+
+            // 模式演化后的数据投影关系
+            int[][] dataProjection = KeyValue.project(dataKeyProjection, dataValueProjection, dataKeyFields.size());
+
+            /**
+             * 我们需要在投影上创建索引映射，而不是分别在键和值上创建索引映射
+             * 这里，例如
              *
              * <ul>
-             *   <li>the table key fields: 1->d, 3->a, 4->b, 5->c
-             *   <li>the data key fields: 1->a, 2->b, 3->c
+             *   <li>表键字段：1->d, 3->a, 4->b, 5->c
+             *   <li>数据键字段：1->a, 2->b, 3->c
              * </ul>
              *
-             * <p>The value fields of table and data are 0->value_count, the key and value
-             * projections are as follows
+             * <p>表和数据的数值字段为 0->value_count，键和值的投影如下
              *
              * <ul>
-             *   <li>table key projection: [0, 1, 2, 3], value projection: [0], data projection: [0,
-             *       1, 2, 3, 4, 5, 6] which 4/5 is seq/kind and 6 is value
-             *   <li>data key projection: [0, 1, 2], value projection: [0], data projection: [0, 1,
-             *       2, 3, 4, 5] where 3/4 is seq/kind and 5 is value
+             *   <li>表键投影：[0, 1, 2, 3]，值投影：[0]，数据投影：[0, 1, 2, 3, 4, 5, 6]，其中 4/5 是 seq/kind，6 是值
+             *   <li>数据键投影：[0, 1, 2]，值投影：[0]，数据投影：[0, 1, 2, 3, 4, 5]，其中 3/4 是 seq/kind，5 是值
              * </ul>
              *
-             * <p>We will get value index mapping null from above and we can't create projection
-             * index mapping based on key and value index mapping any more.
+             * <p>我们将从上述中获得空的值索引映射，我们不能再基于键和值索引映射创建投影索引映射。
              */
-            IndexCastMapping indexCastMapping =
-                    SchemaEvolutionUtil.createIndexCastMapping(
+            // 模式演化的映射关系
+            IndexCastMapping indexCastMapping = SchemaEvolutionUtil.createIndexCastMapping(
                             Projection.of(tableProjection).toTopLevelIndexes(),
                             tableKeyFields,
                             tableValueFields,
@@ -159,27 +156,29 @@ public class BulkFormatMapping {
                             dataKeyFields,
                             dataValueFields);
 
-            List<Predicate> dataFilters =
-                    tableSchema.id() == dataSchema.id()
+            // 基于模式演化的数据过滤条件
+            List<Predicate> dataFilters = tableSchema.id() == dataSchema.id()
                             ? filters
-                            : SchemaEvolutionUtil.createDataFilters(
-                                    tableSchema.fields(), dataSchema.fields(), filters);
+                            : SchemaEvolutionUtil.createDataFilters(tableSchema.fields(), dataSchema.fields(), filters);
 
-            Pair<int[], RowType> partitionPair = null;
+            Pair<int[], RowType> partitionPair = null;   // 提取分区字段
+
             if (!dataSchema.partitionKeys().isEmpty()) {
-                Pair<int[], int[][]> partitionMapping =
-                        PartitionUtils.constructPartitionMapping(
-                                dataRecordType, dataSchema.partitionKeys(), dataProjection);
-                // is partition fields are not selected, we just do nothing.
+                Pair<int[], int[][]> partitionMapping = PartitionUtils.constructPartitionMapping(
+                        dataRecordType, dataSchema.partitionKeys(), dataProjection);
+
+                // 如果分区字段未被选择，我们什么都不做。
                 if (partitionMapping != null) {
-                    dataProjection = partitionMapping.getRight();
-                    partitionPair =
-                            Pair.of(
-                                    partitionMapping.getLeft(),
-                                    dataSchema.projectedLogicalRowType(dataSchema.partitionKeys()));
+                    dataProjection = partitionMapping.getRight();         // 拆分 paritition
+                    partitionPair = Pair.of(                              // 提取分区
+                            partitionMapping.getLeft(),
+                            dataSchema.projectedLogicalRowType(dataSchema.partitionKeys()));
                 }
             }
+
+            // 生成数据查询 schema
             RowType projectedRowType = Projection.of(dataProjection).project(dataRecordType);
+
             return new BulkFormatMapping(
                     indexCastMapping.getIndexMapping(),
                     indexCastMapping.getCastMapping(),

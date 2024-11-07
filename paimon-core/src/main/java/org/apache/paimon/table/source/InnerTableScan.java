@@ -24,27 +24,35 @@ import org.apache.paimon.utils.Filter;
 
 import java.util.Map;
 
-/** Inner {@link TableScan} contains filter push down. */
+/**
+ * Inner {@link TableScan} 包含谓词下推功能.
+ **/
 public interface InnerTableScan extends TableScan {
 
+    // 谓词下推功能
     InnerTableScan withFilter(Predicate predicate);
 
+    // 限制输出行数
     default InnerTableScan withLimit(int limit) {
         return this;
     }
 
+    // 分区过滤器
     default InnerTableScan withPartitionFilter(Map<String, String> partitionSpec) {
         return this;
     }
 
+    // bucket 过滤器
     default InnerTableScan withBucketFilter(Filter<Integer> bucketFilter) {
         return this;
     }
 
+    // 层级过滤器
     default InnerTableScan withLevelFilter(Filter<Integer> levelFilter) {
         return this;
     }
 
+    //
     default InnerTableScan withMetricsRegistry(MetricRegistry metricRegistry) {
         // do nothing, should implement this if need
         return this;

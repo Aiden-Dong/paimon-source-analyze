@@ -288,7 +288,7 @@ public class CoreOptions implements Serializable {
             key("sort-engine")
                     .enumType(SortEngine.class)
                     .defaultValue(SortEngine.LOSER_TREE)
-                    .withDescription("Specify the sort engine for table with primary key.");
+                    .withDescription("为带主键的表指定排序引擎.");
 
     public static final ConfigOption<Integer> SORT_SPILL_THRESHOLD =
             key("sort-spill-threshold")
@@ -499,9 +499,7 @@ public class CoreOptions implements Serializable {
             key("sequence.field")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "The field that generates the sequence number for primary key table,"
-                                    + " the sequence number determines which data is the most recent.");
+                    .withDescription("生成主键表序列号的字段,序列号决定了哪个数据是最新的。");
 
     @Immutable
     public static final ConfigOption<String> ROWKIND_FIELD =

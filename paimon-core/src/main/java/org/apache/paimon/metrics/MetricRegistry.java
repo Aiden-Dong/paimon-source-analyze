@@ -33,6 +33,5 @@ public abstract class MetricRegistry {
         return createMetricGroup(groupName, variables);
     }
 
-    protected abstract MetricGroup createMetricGroup(
-            String groupName, Map<String, String> variables);
+    protected abstract MetricGroup createMetricGroup(String groupName, Map<String, String> variables);
 }

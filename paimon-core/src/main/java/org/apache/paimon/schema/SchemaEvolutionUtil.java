@@ -50,28 +50,28 @@ import java.util.stream.Collectors;
 import static org.apache.paimon.utils.Preconditions.checkNotNull;
 import static org.apache.paimon.utils.Preconditions.checkState;
 
-/** Utils for schema evolution. */
+/**
+ * 模式演化工具
+ **/
 public class SchemaEvolutionUtil {
 
     private static final int NULL_FIELD_INDEX = -1;
 
     /**
-     * Create index mapping from table fields to underlying data fields. For example, the table and
-     * data fields are as follows
+     * 从表字段到底层数据字段创建索引映射。例如，表和数据字段如下：
      *
      * <ul>
-     *   <li>table fields: 1->c, 6->b, 3->a
-     *   <li>data fields: 1->a, 3->c
+     *   <li>表字段：1->c, 6->b, 3->a
+     *   <li>数据字段：1->a, 3->c
      * </ul>
      *
-     * <p>We can get the index mapping [0, -1, 1], in which 0 is the index of table field 1->c in
-     * data fields, 1 is the index of 6->b in data fields and 1 is the index of 3->a in data fields.
+     * <p>我们可以得到索引映射 [0, -1, 1]，其中 0 是表字段 1->c 在数据字段中的索引，1 是 6->b 在数据字段中的索引，1 是 3->a 在数据字段中的索引。
      *
-     * <p>/// TODO should support nest index mapping when nest schema evolution is supported.
+     * <p>/// TODO 当支持嵌套模式演化时，应该支持嵌套索引映射。
      *
-     * @param tableFields the fields of table
-     * @param dataFields the fields of underlying data
-     * @return the index mapping
+     * @param tableFields 表的字段
+     * @param dataFields 底层数据的字段
+     * @return 索引映射
      */
     @Nullable
     public static int[] createIndexMapping(
@@ -101,38 +101,36 @@ public class SchemaEvolutionUtil {
     }
 
     /**
-     * Create index mapping from table projection to underlying data projection. For example, the
-     * table and data fields are as follows
+     * 从表投影到底层数据投影创建索引映射。例如，表和数据字段如下：
      *
      * <ul>
-     *   <li>table fields: 1->c, 3->a, 4->e, 5->d, 6->b
-     *   <li>data fields: 1->a, 2->b, 3->c, 4->d
+     *   <li>表字段：1->c, 3->a, 4->e, 5->d, 6->b
+     *   <li>数据字段：1->a, 2->b, 3->c, 4->d
      * </ul>
      *
-     * <p>The table and data top projections are as follows
+     * <p>表和数据顶部投影如下：
      *
      * <ul>
-     *   <li>table projection: [0, 4, 1]
-     *   <li>data projection: [0, 2]
+     *   <li>表投影：[0, 4, 1]
+     *   <li>数据投影：[0, 2]
      * </ul>
      *
-     * <p>We can first get fields list for table and data projections from their fields as follows
+     * <p>我们可以首先从它们的字段获取表和数据投影的字段列表，如下所示：
      *
      * <ul>
-     *   <li>table projection field list: [1->c, 6->b, 3->a]
-     *   <li>data projection field list: [1->a, 3->c]
+     *   <li>表投影字段列表：[1->c, 6->b, 3->a]
+     *   <li>数据投影字段列表：[1->a, 3->c]
      * </ul>
      *
-     * <p>Then create index mapping based on the fields list and create cast mapping based on index
-     * mapping.
+     * <p>然后基于字段列表创建索引映射，并基于索引映射创建转换映射。
      *
-     * <p>/// TODO should support nest index mapping when nest schema evolution is supported.
+     * <p>/// TODO 当支持嵌套模式演化时，应该支持嵌套索引映射。
      *
-     * @param tableProjection the table projection
-     * @param tableFields the fields in table
-     * @param dataProjection the underlying data projection
-     * @param dataFields the fields in underlying data
-     * @return the index mapping
+     * @param tableProjection 表投影
+     * @param tableFields 表中的字段
+     * @param dataProjection 底层数据投影
+     * @param dataFields 底层数据中的字段
+     * @return 索引映射
      */
     public static IndexCastMapping createIndexCastMapping(
             int[] tableProjection,
@@ -144,7 +142,7 @@ public class SchemaEvolutionUtil {
                 projectDataFields(dataProjection, dataFields));
     }
 
-    /** Create index mapping from table fields to underlying data fields. */
+    /** 从表字段到底层数据字段创建索引映射 */
     public static IndexCastMapping createIndexCastMapping(
             List<DataField> tableFields, List<DataField> dataFields) {
         int[] indexMapping = createIndexMapping(tableFields, dataFields);
@@ -175,39 +173,33 @@ public class SchemaEvolutionUtil {
     }
 
     /**
-     * Create index mapping from table projection to data with key and value fields. We should first
-     * create table and data fields with their key/value fields, then create index mapping with
-     * their projections and fields. For example, the table and data projections and fields are as
-     * follows
+     * 从表投影到具有键和值字段的数据创建索引映射。我们应该首先创建表和数据字段及其键/值字段，然后使用它们的投影和字段创建索引映射。例如，表和数据投影和字段如下：
      *
      * <ul>
-     *   <li>Table key fields: 1->ka, 3->kb, 5->kc, 6->kd; value fields: 0->a, 2->d, 4->b;
-     *       projection: [0, 2, 3, 4, 5, 7] where 0 is 1->ka, 2 is 5->kc, 3 is 5->kc, 4/5 are seq
-     *       and kind, 7 is 2->d
-     *   <li>Data key fields: 1->kb, 5->ka; value fields: 2->aa, 4->f; projection: [0, 1, 2, 3, 4]
-     *       where 0 is 1->kb, 1 is 5->ka, 2/3 are seq and kind, 4 is 2->aa
+     *   <li>表键字段：1->ka, 3->kb, 5->kc, 6->kd；值字段：0->a, 2->d, 4->b；
+     *       投影：[0, 2, 3, 4, 5, 7]，其中 0 是 1->ka，2 是 5->kc，3 是 5->kc，4/5 是 seq 和 kind，7 是 2->d
+     *   <li>数据键字段：1->kb, 5->ka；值字段：2->aa, 4->f；投影：[0, 1, 2, 3, 4]，
+     *       其中 0 是 1->kb，1 是 5->ka，2/3 是 seq 和 kind，4 是 2->aa
      * </ul>
      *
-     * <p>First we will get max key id from table and data fields which is 6, then create table and
-     * data fields on it
+     * <p>首先，我们将从表和数据字段中获取最大键 ID，即 6，然后在其上创建表和数据字段：
      *
      * <ul>
-     *   <li>Table fields: 1->ka, 3->kb, 5->kc, 6->kd, 7->seq, 8->kind, 9->a, 11->d, 13->b
-     *   <li>Data fields: 1->kb, 5->ka, 7->seq, 8->kind, 11->aa, 13->f
+     *   <li>表字段：1->ka, 3->kb, 5->kc, 6->kd, 7->seq, 8->kind, 9->a, 11->d, 13->b
+     *   <li>数据字段：1->kb, 5->ka, 7->seq, 8->kind, 11->aa, 13->f
      * </ul>
      *
-     * <p>Finally we can create index mapping with table/data projections and fields, and create
-     * cast mapping based on index mapping.
+     * <p>最后，我们可以使用表/数据投影和字段创建索引映射，并基于索引映射创建转换映射。
      *
-     * <p>/// TODO should support nest index mapping when nest schema evolution is supported.
+     * <p>/// TODO 当支持嵌套模式演化时，应该支持嵌套索引映射。
      *
-     * @param tableProjection the table projection
-     * @param tableKeyFields the table key fields
-     * @param tableValueFields the table value fields
-     * @param dataProjection the data projection
-     * @param dataKeyFields the data key fields
-     * @param dataValueFields the data value fields
-     * @return the result index and cast mapping
+     * @param tableProjection 表投影
+     * @param tableKeyFields 表键字段
+     * @param tableValueFields 表值字段
+     * @param dataProjection 数据投影
+     * @param dataKeyFields 数据键字段
+     * @param dataValueFields 数据值字段
+     * @return 结果索引和转换映射
      */
     public static IndexCastMapping createIndexCastMapping(
             int[] tableProjection,
@@ -226,65 +218,59 @@ public class SchemaEvolutionUtil {
                 KeyValue.createKeyValueFields(dataKeyFields, dataValueFields, maxKeyId);
         return createIndexCastMapping(tableProjection, tableFields, dataProjection, dataFields);
     }
-
     /**
-     * Create data projection from table projection. For example, the table and data fields are as
-     * follows
+     * 从表投影创建数据投影。例如，表和数据字段如下：
      *
      * <ul>
-     *   <li>table fields: 1->c, 3->a, 4->e, 5->d, 6->b
-     *   <li>data fields: 1->a, 2->b, 3->c, 4->d
+     *   <li>表字段:   1->c, 3->a, 4->e, 5->d, 6->b
+     *   <li>数据字段： 1->a, 2->b, 3->c, 4->d
      * </ul>
      *
-     * <p>When we project 1->c, 6->b, 3->a from table fields, the table projection is [[0], [4],
-     * [1]], in which 0 is the index of field 1->c, 4 is the index of field 6->b, 1 is the index of
-     * field 3->a in table fields. We need to create data projection from [[0], [4], [1]] as
-     * follows:
+     * <p>当我们从表字段投影 1->c, 6->b, 3->a 时，
+     *    表投影为 [[0], [4], [1]]，其中 0 是字段 1->c 的索引，4 是字段 6->b 的索引，1 是字段 3->a 在表字段中的索引。
+     *    我们需要从 [[0], [4], [1]] 创建数据投影，如下所示：
      *
-     * <ul>
-     *   <li>Get field id of each index in table projection from table fields
-     *   <li>Get index of each field above from data fields
-     * </ul>
+     *   <ul>
+     *     <li>从表字段获取表投影中每个索引的字段 ID
+     *     <li>从数据字段获取每个字段的索引
+     *   </ul>
      *
-     * <p>The we can create table projection as follows: [[0], [-1], [2]], in which 0, -1 and 2 are
-     * the index of fields [1->c, 6->b, 3->a] in data fields. When we project column from underlying
-     * data, we need to specify the field index and name. It is difficult to assign a proper field
-     * id and name for 6->b in data projection and add it to data fields, and we can't use 6->b
-     * directly because the field index of b in underlying is 2. We can remove the -1 field index in
-     * data projection, then the result data projection is: [[0], [2]].
+     * <p>然后我们可以创建表投影如下： [[0], [-1], [2]]，其中 0、-1 和 2 是字段 [1->c, 6->b, 3->a] 在数据字段中的索引。
+     *     当我们从底层数据投影列时，我们需要指定字段索引和名称。
+     *     很难为数据投影中的 6->b 分配适当的字段 ID 和名称，并将其添加到数据字段中，我们不能直接使用 6->b，因为 b 在底层中的字段索引为 2。
+     *     我们可以删除数据投影中的 -1 字段索引，然后结果数据投影为：[[0], [2]]。
      *
-     * <p>We create {@link InternalRow} for 1->a, 3->c after projecting them from underlying data,
-     * then create {@link ProjectedRow} with a index mapping and return null for 6->b in table
-     * fields.
+     * <p>我们从底层数据投影 1->a, 3->c 后创建 {@link InternalRow}，然后创建带有索引映射的 {@link ProjectedRow}，并为表字段中的 6->b 返回 null。
      *
-     * @param tableFields the fields of table
-     * @param dataFields the fields of underlying data
-     * @param tableProjection the projection of table
-     * @return the projection of data
+     * @param tableFields 表的字段
+     * @param dataFields 底层数据的字段
+     * @param tableProjection 表的投影
+     * @return 数据的投影
      */
     public static int[][] createDataProjection(
             List<DataField> tableFields, List<DataField> dataFields, int[][] tableProjection) {
-        List<Integer> dataFieldIdList =
-                dataFields.stream().map(DataField::id).collect(Collectors.toList());
-        return Arrays.stream(tableProjection)
+
+        // 获取数据字段的 ID
+        List<Integer> dataFieldIdList = dataFields.stream().map(DataField::id).collect(Collectors.toList());
+
+        return Arrays.stream(tableProjection)  // 取出表映射关系
                 .map(p -> Arrays.copyOf(p, p.length))
                 .peek(
                         p -> {
-                            int fieldId = tableFields.get(p[0]).id();
-                            p[0] = dataFieldIdList.indexOf(fieldId);
+                            int fieldId = tableFields.get(p[0]).id();   // 从表中找到这个投影对应的索引位置
+                            p[0] = dataFieldIdList.indexOf(fieldId);    // 从数据字段找到这个字段的索引位置
                         })
                 .filter(p -> p[0] >= 0)
                 .toArray(int[][]::new);
     }
 
     /**
-     * Create predicate list from data fields. We will visit all predicate in filters, reset it's
-     * field index, name and type, and ignore predicate if the field is not exist.
+     * 从数据字段创建谓词列表。我们将访问过滤器中的所有谓词，重置其字段索引、名称和类型，如果字段不存在则忽略。
      *
-     * @param tableFields the table fields
-     * @param dataFields the underlying data fields
-     * @param filters the filters
-     * @return the data filters
+     * @param tableFields 表字段
+     * @param dataFields 底层数据字段
+     * @param filters 过滤器
+     * @return 数据过滤器
      */
     @Nullable
     public static List<Predicate> createDataFilters(
@@ -314,14 +300,9 @@ public class SchemaEvolutionUtil {
                     DataType predicateType = predicate.type().copy(true);
                     CastExecutor<Object, Object> castExecutor =
                             dataValueType.equals(predicateType)
-                                    ? null
-                                    : (CastExecutor<Object, Object>)
-                                            CastExecutors.resolve(
-                                                    predicate.type(), dataField.type());
-                    // Convert value from predicate type to underlying data type which may lose
-                    // information, for example, convert double value to int. But it doesn't matter
-                    // because it just for predicate push down and the data will be filtered
-                    // correctly after reading.
+                                    ? null : (CastExecutor<Object, Object>) CastExecutors.resolve(predicate.type(), dataField.type());
+                    // 将值从谓词类型转换为底层数据类型，可能会丢失信息，例如将 double 值转换为 int。
+                    // 但这没关系，因为它只是为了谓词下推，数据在读取后将被正确过滤。
                     List<Object> literals =
                             predicate.literals().stream()
                                     .map(v -> castExecutor == null ? v : castExecutor.cast(v))
@@ -355,24 +336,21 @@ public class SchemaEvolutionUtil {
     }
 
     /**
-     * Create converter mapping from table fields to underlying data fields. For example, the table
-     * and data fields are as follows
+     * 从表字段到底层数据字段创建转换器映射。例如，表和数据字段如下：
      *
      * <ul>
-     *   <li>table fields: 1->c INT, 6->b STRING, 3->a BIGINT
-     *   <li>data fields: 1->a BIGINT, 3->c DOUBLE
+     *   <li>表字段：1->c INT, 6->b STRING, 3->a BIGINT
+     *   <li>数据字段：1->a BIGINT, 3->c DOUBLE
      * </ul>
      *
-     * <p>We can get the column types (1->a BIGINT), (3->c DOUBLE) from data fields for (1->c INT)
-     * and (3->a BIGINT) in table fields through index mapping [0, -1, 1], then compare the data
-     * type and create converter mapping.
+     * <p>我们可以通过索引映射 [0, -1, 1] 从数据字段获取表字段 (1->c INT) 和 (3->a BIGINT) 的列类型 (1->a BIGINT)、(3->c DOUBLE)，然后比较数据类型并创建转换器映射。
      *
-     * <p>/// TODO should support nest index mapping when nest schema evolution is supported.
+     * <p>/// TODO 当支持嵌套模式演化时，应该支持嵌套索引映射。
      *
-     * @param tableFields the fields of table
-     * @param dataFields the fields of underlying data
-     * @param indexMapping the index mapping from table fields to data fields
-     * @return the index mapping
+     * @param tableFields 表的字段
+     * @param dataFields 底层数据的字段
+     * @param indexMapping 表字段到数据字段的索引映射
+     * @return 索引映射
      */
     @Nullable
     public static CastExecutor<?, ?>[] createConvertMapping(
@@ -405,24 +383,21 @@ public class SchemaEvolutionUtil {
     }
 
     /**
-     * Create getter and casting mapping from table fields to underlying data fields with given
-     * index mapping. For example, the table and data fields are as follows
+     * 从表字段到底层数据字段创建 getter 和转换映射，并给出索引映射。例如，表和数据字段如下：
      *
      * <ul>
-     *   <li>table fields: 1->c INT, 6->b STRING, 3->a BIGINT
-     *   <li>data fields: 1->a BIGINT, 3->c DOUBLE
+     *   <li>表字段：1->c INT, 6->b STRING, 3->a BIGINT
+     *   <li>数据字段：1->a BIGINT, 3->c DOUBLE
      * </ul>
      *
-     * <p>We can get the column types (1->a BIGINT), (3->c DOUBLE) from data fields for (1->c INT)
-     * and (3->a BIGINT) in table fields through index mapping [0, -1, 1], then compare the data
-     * type and create getter and casting mapping.
+     * <p>我们可以通过索引映射 [0, -1, 1] 从数据字段获取表字段 (1->c INT) 和 (3->a BIGINT) 的列类型 (1->a BIGINT)、(3->c DOUBLE)，然后比较数据类型并创建 getter 和转换映射。
      *
-     * <p>/// TODO should support nest index mapping when nest schema evolution is supported.
+     * <p>/// TODO 当支持嵌套模式演化时，应该支持嵌套索引映射。
      *
-     * @param tableFields the fields of table
-     * @param dataFields the fields of underlying data
-     * @param indexMapping the index mapping from table fields to data fields
-     * @return the getter and casting mapping
+     * @param tableFields 表的字段
+     * @param dataFields 底层数据的字段
+     * @param indexMapping 表字段到数据字段的索引映射
+     * @return getter 和转换映射
      */
     private static CastFieldGetter[] createCastFieldGetterMapping(
             List<DataField> tableFields, List<DataField> dataFields, int[] indexMapping) {
@@ -437,8 +412,7 @@ public class SchemaEvolutionUtil {
                 DataField tableField = tableFields.get(i);
                 DataField dataField = dataFields.get(dataIndex);
                 if (dataField.type().equalsIgnoreNullable(tableField.type())) {
-                    // Create getter with index i and projected row data will convert to underlying
-                    // data
+                    // 创建索引为 i 的 getter，投影行数据将转换为底层数据
                     converterMapping[i] =
                             new CastFieldGetter(
                                     InternalRowUtils.createNullCheckingFieldGetter(
@@ -452,8 +426,7 @@ public class SchemaEvolutionUtil {
                                     || dataField.type() instanceof MultisetType
                                     || dataField.type() instanceof RowType),
                             "Only support column type evolution in atomic data type.");
-                    // Create getter with index i and projected row data will convert to underlying
-                    // data
+                    // 创建 getter，索引为 i，投影行数据将转换为底层数据
                     converterMapping[i] =
                             new CastFieldGetter(
                                     InternalRowUtils.createNullCheckingFieldGetter(

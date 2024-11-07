@@ -59,7 +59,9 @@ import static org.apache.paimon.predicate.PredicateBuilder.splitAnd;
 import static org.apache.paimon.utils.BranchManager.DEFAULT_MAIN_BRANCH;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** {@link FileStore} for querying and updating {@link KeyValue}s. */
+/**
+ * {@link FileStore} for querying and updating {@link KeyValue}s.
+ **/
 public class KeyValueFileStore extends AbstractFileStore<KeyValue> {
 
     private static final long serialVersionUID = 1L;

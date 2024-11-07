@@ -55,7 +55,9 @@ import java.util.Optional;
 import static org.apache.paimon.CoreOptions.FULL_COMPACTION_DELTA_COMMITS;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** An abstraction layer above {@link FileStoreScan} to provide input split generation. */
+/**
+ * 一个在 {@link FileStoreScan} 之上的抽象层，用于提供输入分片生成。
+ */
 public abstract class AbstractInnerTableScan implements InnerTableScan {
 
     private final CoreOptions options;

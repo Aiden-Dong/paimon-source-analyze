@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
-/** Algorithm to partition several data files into the minimum number of {@link SortedRun}s. */
+/**
+ * 算法将多个数据文件划分为最少数量的 {@link SortedRun}。
+ */
 public class IntervalPartition {
 
     private final List<DataFileMeta> files;
@@ -40,29 +42,26 @@ public class IntervalPartition {
         this.files.sort(
                 (o1, o2) -> {
                     int leftResult = keyComparator.compare(o1.minKey(), o2.minKey());
-                    return leftResult == 0
-                            ? keyComparator.compare(o1.maxKey(), o2.maxKey())
-                            : leftResult;
+                    return leftResult == 0 ? keyComparator.compare(o1.maxKey(), o2.maxKey()) : leftResult;
                 });
         this.keyComparator = keyComparator;
     }
 
     /**
-     * Returns a two-dimensional list of {@link SortedRun}s.
+     * 返回一个二维的 {@link SortedRun} 列表。
      *
-     * <p>The elements of the outer list are sections. Key intervals between sections do not
-     * overlap. This extra layer is to minimize the number of {@link SortedRun}s dealt at the same
-     * time.
+     * <p>外层列表的元素是不同的区段。区段之间的键区间不重叠。这个额外的层次用于最小化同时处理的 {@link SortedRun} 数量。
+     * <p>内层列表的元素是某个区段内的 {@link SortedRun}。
      *
-     * <p>The elements of the inner list are {@link SortedRun}s within a section.
+     * <p>用户应当按照以下方式使用结果：
      *
-     * <p>Users are expected to use the results by this way:
-     *
-     * <pre>{@code
-     * for (List<SortedRun> section : algorithm.partition()) {
-     *     // do some merge sorting within section
-     * }
-     * }</pre>
+     * <pre>
+     *   {@code
+     *     for (List<SortedRun> section : algorithm.partition()) {
+     *       // 在每个区段内进行归并排序
+     *     }
+     *   }
+     * </pre>
      */
     public List<List<SortedRun>> partition() {
         List<List<SortedRun>> result = new ArrayList<>();
@@ -70,8 +69,10 @@ public class IntervalPartition {
         BinaryRow bound = null;
 
         for (DataFileMeta meta : files) {
+
+            // 代表当前的 datafile 不在 section 中所有文件的 key  区间范围内， 可以新开一个 section
             if (!section.isEmpty() && keyComparator.compare(meta.minKey(), bound) > 0) {
-                // larger than current right bound, conclude current section and create a new one
+                // 大于当前右边界，结束当前区间并创建一个新的区间
                 result.add(partition(section));
                 section.clear();
                 bound = null;
@@ -90,9 +91,10 @@ public class IntervalPartition {
         return result;
     }
 
+    // metas 代表一堆 key 重叠的 datafile 集合
     private List<SortedRun> partition(List<DataFileMeta> metas) {
-        PriorityQueue<List<DataFileMeta>> queue =
-                new PriorityQueue<>(
+
+        PriorityQueue<List<DataFileMeta>> queue = new PriorityQueue<>(
                         (o1, o2) ->
                                 // sort by max key of the last data file
                                 keyComparator.compare(
@@ -105,8 +107,7 @@ public class IntervalPartition {
 
         for (int i = 1; i < metas.size(); i++) {
             DataFileMeta meta = metas.get(i);
-            // any file list whose max key < meta.minKey() is sufficient,
-            // for convenience we pick the smallest
+            // 任何最小于 meta.minKey() 的文件列表都足够，为了方便起见，我们选择最小的一个
             List<DataFileMeta> top = queue.poll();
             if (keyComparator.compare(meta.minKey(), top.get(top.size() - 1).maxKey()) > 0) {
                 // append current file to an existing partition

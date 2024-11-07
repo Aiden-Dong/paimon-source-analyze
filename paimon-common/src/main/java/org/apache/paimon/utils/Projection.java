@@ -36,8 +36,8 @@ import java.util.stream.IntStream;
 import static org.apache.paimon.types.DataTypeRoot.ROW;
 
 /**
- * {@link Projection} represents a list of (possibly nested) indexes that can be used to project
- * data types. A row projection includes both reducing the accessible fields and reordering them.
+ * {@link Projection} 表示一个（可能是嵌套的）索引列表，可以用来投影数据类型。
+ *                    行投影包括减少可访问字段并重新排序它们。
  */
 public abstract class Projection {
 
@@ -67,25 +67,23 @@ public abstract class Projection {
         return ret;
     }
 
-    /** @return {@code true} whether this projection is nested or not. */
+    /**
+     * @return {@code true} 如果这个投影是嵌套的，否则返回 {@code false}。
+     */
     public abstract boolean isNested();
 
     /**
-     * Perform a difference of this {@link Projection} with another {@link Projection}. The result
-     * of this operation is a new {@link Projection} retaining the same ordering of this instance
-     * but with the indexes from {@code other} removed. For example:
+     * 执行此 {@link Projection} 与另一个 {@link Projection} 的差集操作。该操作的结果是一个新的 {@link Projection}，
+     * 保留当前实例的相同顺序，但移除 {@code other} 中的索引。例如：
      *
      * <pre>
-     * <code>
-     * [4, 1, 0, 3, 2] - [4, 2] = [1, 0, 2]
-     * </code>
+     *   <code>[4, 1, 0, 3, 2] - [4, 2] = [1, 0, 3]</code>
      * </pre>
      *
-     * <p>Note how the index {@code 3} in the minuend becomes {@code 2} because it's rescaled to
-     * project correctly a {@link InternalRow} or arity 3.
+     * <p>注意被减数中的索引 {@code 3} 会变为 {@code 2}，因为它重新缩放以正确地投影一个具有 3 个元素的 {@link InternalRow}。
      *
-     * @param other the subtrahend
-     * @throws IllegalArgumentException when {@code other} is nested.
+     * @param other 被减数
+     * @throws IllegalArgumentException 如果 {@code other} 是嵌套的，则抛出异常。
      */
     public abstract Projection difference(Projection other);
 
@@ -105,11 +103,11 @@ public abstract class Projection {
     public abstract Projection complement(int fieldsNumber);
 
     /**
-     * Convert this instance to a projection of top level indexes. The array represents the mapping
-     * of the fields of the original {@link DataType}. For example, {@code [0, 2, 1]} specifies to
-     * include in the following order the 1st field, the 3rd field and the 2nd field of the row.
+     * 将此实例转换为顶层索引的投影。该数组表示原始 {@link DataType} 字段的映射。
+     * 例如，{@code [0, 2, 1]} 指定按以下顺序
+     * 包含第 1 个字段、第 3 个字段和第 2 个字段的行。
      *
-     * @throws IllegalStateException if this projection is nested.
+     * @throws IllegalStateException 如果此投影是嵌套的，则抛出异常。
      */
     public abstract int[] toTopLevelIndexes();
 

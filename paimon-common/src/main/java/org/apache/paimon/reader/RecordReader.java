@@ -33,46 +33,44 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * The reader that reads the batches of records.
- *
+ * 读取记录批次的读取器。
  * @since 0.4.0
  */
+
 @Public
 public interface RecordReader<T> extends Closeable {
 
     /**
-     * Reads one batch. The method should return null when reaching the end of the input.
-     *
-     * <p>The returned iterator object and any contained objects may be held onto by the source for
-     * some time, so it should not be immediately reused by the reader.
+     * 读取一批记录。当达到输入的末尾时，该方法应返回 null。
+     * <p>返回的迭代器对象及其包含的对象可能会被源持有一段时间，因此不应立即被读取器重新使用。
      */
     @Nullable
     RecordIterator<T> readBatch() throws IOException;
 
-    /** Closes the reader and should release all resources. */
+    // 关闭读取器，并应释放所有资源。
     @Override
     void close() throws IOException;
 
     /**
-     * An internal iterator interface which presents a more restrictive API than {@link Iterator}.
+     * 一个内部迭代器接口，提供比 {@link Iterator} 更严格的 API。
      */
     interface RecordIterator<T> {
 
         /**
-         * Gets the next record from the iterator. Returns null if this iterator has no more
-         * elements.
+         * 获取迭代器中的下一个记录。如果该迭代器没有更多元素，则返回 null。
          */
         @Nullable
         T next() throws IOException;
 
         /**
-         * Releases the batch that this iterator iterated over. This is not supposed to close the
-         * reader and its resources, but is simply a signal that this iterator is not used anymore.
-         * This method can be used as a hook to recycle/reuse heavyweight object structures.
+         * 释放该迭代器所迭代的批次。此方法不应关闭读取器及其资源，而只是一个信号，表示该迭代器不再使用。
+         * 此方法可用作钩子，回收/重用重量级对象结构。
          */
         void releaseBatch();
 
-        /** Returns an iterator that applies {@code function} to each element. */
+        /**
+         * 返回一个迭代器，对每个元素应用 {@code function}。
+         **/
         default <R> RecordReader.RecordIterator<R> transform(Function<T, R> function) {
             RecordReader.RecordIterator<T> thisIterator = this;
             return new RecordReader.RecordIterator<R>() {
@@ -93,7 +91,9 @@ public interface RecordReader<T> extends Closeable {
             };
         }
 
-        /** Filters a {@link RecordIterator}. */
+        /**
+         * 过滤一个 {@link RecordIterator}。
+         **/
         default RecordIterator<T> filter(Filter<T> filter) {
             RecordIterator<T> thisIterator = this;
             return new RecordIterator<T>() {
@@ -124,8 +124,7 @@ public interface RecordReader<T> extends Closeable {
     // -------------------------------------------------------------------------
 
     /**
-     * Performs the given action for each remaining element in {@link RecordReader} until all
-     * elements have been processed or the action throws an exception.
+     * 对 {@link RecordReader} 中的每个剩余元素执行给定的操作，直到所有元素都被处理完毕或操作抛出异常。
      */
     default void forEachRemaining(Consumer<? super T> action) throws IOException {
         RecordReader.RecordIterator<T> batch;
@@ -144,8 +143,7 @@ public interface RecordReader<T> extends Closeable {
     }
 
     /**
-     * Performs the given action for each remaining element with row position in {@link
-     * RecordReader} until all elements have been processed or the action throws an exception.
+     * 对 {@link RecordReader} 中每个剩余元素及其行位置执行给定的操作，直到所有元素都被处理完毕或操作抛出异常。
      */
     default void forEachRemainingWithPosition(BiConsumer<Long, ? super T> action)
             throws IOException {
@@ -165,8 +163,7 @@ public interface RecordReader<T> extends Closeable {
     }
 
     /**
-     * Performs the given action for each remaining element in {@link RecordReader} until all
-     * elements have been processed or the action throws an exception.
+     * 对 {@link RecordReader} 中的每个剩余元素执行给定的操作，直到所有元素都被处理完毕或操作抛出异常。
      */
     default void forIOEachRemaining(ConsumerWithIOException<? super T> action) throws IOException {
         RecordReader.RecordIterator<T> batch;
@@ -184,7 +181,9 @@ public interface RecordReader<T> extends Closeable {
         }
     }
 
-    /** Returns a {@link RecordReader} that applies {@code function} to each element. */
+    /**
+     * 返回一个 {@link RecordReader}，该读取器对每个元素应用 {@code function}。
+     **/
     default <R> RecordReader<R> transform(Function<T, R> function) {
         RecordReader<T> thisReader = this;
         return new RecordReader<R>() {
@@ -205,7 +204,7 @@ public interface RecordReader<T> extends Closeable {
         };
     }
 
-    /** Filters a {@link RecordReader}. */
+    /** 过滤操作 {@link RecordReader}. */
     default RecordReader<T> filter(Filter<T> filter) {
         RecordReader<T> thisReader = this;
         return new RecordReader<T>() {

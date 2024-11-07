@@ -58,7 +58,9 @@ import java.util.stream.IntStream;
 import static org.apache.paimon.schema.SystemColumns.SEQUENCE_NUMBER;
 import static org.apache.paimon.schema.SystemColumns.VALUE_KIND;
 
-/** The merge sorter to sort and merge readers with key overlap. */
+/****
+ * 合并排序器，用于对具有键重叠的读取器进行排序和合并。
+ */
 public class MergeSorter {
 
     private final RowType keyType;
@@ -107,10 +109,10 @@ public class MergeSorter {
     }
 
     public <T> RecordReader<T> mergeSort(
-            List<ReaderSupplier<KeyValue>> lazyReaders,
-            Comparator<InternalRow> keyComparator,
-            @Nullable FieldsComparator userDefinedSeqComparator,
-            MergeFunctionWrapper<T> mergeFunction)
+            List<ReaderSupplier<KeyValue>> lazyReaders,           // readers 之间会存在 key 冲突的情况
+            Comparator<InternalRow> keyComparator,                // 比较器
+            @Nullable FieldsComparator userDefinedSeqComparator,  //
+            MergeFunctionWrapper<T> mergeFunction)                // 合并函数
             throws IOException {
         if (ioManager != null && lazyReaders.size() > spillThreshold) {
             return spillMergeSort(

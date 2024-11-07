@@ -38,21 +38,20 @@ import static org.apache.paimon.schema.SystemColumns.VALUE_KIND;
 import static org.apache.paimon.utils.Preconditions.checkState;
 
 /**
- * A key value, including user key, sequence number, value kind and value. This object can be
- * reused.
+ * 一个键值对，包括用户键、序列号、值的种类和对应的值。该对象可以被重用。
  */
 public class KeyValue {
 
     public static final long UNKNOWN_SEQUENCE = -1;
     public static final int UNKNOWN_LEVEL = -1;
 
-    private InternalRow key;
-    // determined after written into memory table or read from file
-    private long sequenceNumber;
-    private RowKind valueKind;
-    private InternalRow value;
-    // determined after read from file
-    private int level;
+    private InternalRow key;   // key 数据体
+
+    private long sequenceNumber;  // 序列号 -- 在写入内存表后或从文件读取后确定
+    private RowKind valueKind;   // 数据插入类型
+    private InternalRow value;   // value 数据体
+
+    private int level;     // 在从文件读取后确定
 
     public KeyValue replace(InternalRow key, RowKind valueKind, InternalRow value) {
         return replace(key, UNKNOWN_SEQUENCE, valueKind, value);
@@ -150,14 +149,9 @@ public class KeyValue {
 
         List<DataField> fields = new ArrayList<>(keyFields.size() + valueFields.size() + 2);
         fields.addAll(keyFields);
-        fields.add(
-                new DataField(
-                        maxKeyId + 1,
-                        SEQUENCE_NUMBER,
-                        new org.apache.paimon.types.BigIntType(false)));
-        fields.add(
-                new DataField(
-                        maxKeyId + 2, VALUE_KIND, new org.apache.paimon.types.TinyIntType(false)));
+        fields.add(new DataField(maxKeyId + 1, SEQUENCE_NUMBER, new org.apache.paimon.types.BigIntType(false)));
+        fields.add(new DataField(maxKeyId + 2, VALUE_KIND, new org.apache.paimon.types.TinyIntType(false)));
+
         for (DataField valueField : valueFields) {
             DataField newValueField =
                     new DataField(

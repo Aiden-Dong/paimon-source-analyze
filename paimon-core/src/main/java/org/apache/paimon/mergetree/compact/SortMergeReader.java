@@ -30,11 +30,10 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * This reader is to read a list of {@link RecordReader}, which is already sorted by key and
- * sequence number, and perform a sort merge algorithm. {@link KeyValue}s with the same key will
- * also be combined during sort merging.
+ * 该读取器用于读取已按键和序列号排序的 {@link RecordReader} 列表，并执行归并排序算法。
+ *   具有相同键的 {@link KeyValue} 在归并排序期间也将合并。
  *
- * <p>NOTE: {@link KeyValue}s from the same {@link RecordReader} must not contain the same key.
+ * <p>注意：来自同一 {@link RecordReader} 的 {@link KeyValue} 不能包含相同的键。
  */
 public interface SortMergeReader<T> extends RecordReader<T> {
 

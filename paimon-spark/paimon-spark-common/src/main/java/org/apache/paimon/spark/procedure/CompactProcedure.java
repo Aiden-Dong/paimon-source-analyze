@@ -134,10 +134,10 @@ public class CompactProcedure extends BaseProcedure {
             throw new IllegalArgumentException("order_strategy \"none\" cannot work with order_by columns.");
         }
 
-        checkArgument(partitions == null || where == null,
-                "partitions and where cannot be used together.");
+        checkArgument(partitions == null || where == null, "partitions and where cannot be used together.");
 
         String finalWhere = partitions != null ? toWhere(partitions) : where;
+
         return modifyPaimonTable(
                 tableIdent,
                 table -> {

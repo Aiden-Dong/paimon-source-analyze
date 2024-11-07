@@ -21,18 +21,17 @@ package org.apache.paimon.mergetree.compact;
 import org.apache.paimon.KeyValue;
 
 /**
- * Merge function to merge multiple {@link KeyValue}s.
+ * 合并函数，用于合并多个 {@link KeyValue}。
  *
- * <p>IMPORTANT, Object reusing inside the kv of the {@link #add} input:
+ * <p>重要提示，关于 {@link #add} 输入中的 kv 对象复用：
  *
  * <ul>
- *   <li>Please don't save KeyValue and InternalRow references to the List: the KeyValue of the
- *       first two objects and the InternalRow object inside them are safe, but the reference of the
- *       third object may overwrite the reference of the first object.
- *   <li>You can save fields references: fields don't reuse their objects.
+ *   <li>请不要将 KeyValue 和 InternalRow 的引用保存在 List 中：前两个对象中的 KeyValue 和
+ *       其中的 InternalRow 对象是安全的，但第三个对象的引用可能会覆盖第一个对象的引用。
+ *   <li>你可以保存字段的引用：字段不会复用它们的对象。
  * </ul>
  *
- * @param <T> result type
+ * @param <T> 结果类型
  */
 public interface MergeFunction<T> {
 

@@ -64,24 +64,29 @@ public class MergeTreeReaders {
     }
 
     public static <T> RecordReader<T> readerForSection(
-            List<SortedRun> section,
-            FileReaderFactory<KeyValue> readerFactory,
-            Comparator<InternalRow> userKeyComparator,
-            @Nullable FieldsComparator userDefinedSeqComparator,
-            MergeFunctionWrapper<T> mergeFunctionWrapper,
+            List<SortedRun> section,                             //  SortedRun 内部数据有序， SortedRun 之间数据会有重叠
+            FileReaderFactory<KeyValue> readerFactory,           // ?????
+            Comparator<InternalRow> userKeyComparator,           // 比较器
+            @Nullable FieldsComparator userDefinedSeqComparator, //
+            MergeFunctionWrapper<T> mergeFunctionWrapper,        // 合并函数
             MergeSorter mergeSorter)
             throws IOException {
         List<ReaderSupplier<KeyValue>> readers = new ArrayList<>();
+
         for (SortedRun run : section) {
             readers.add(() -> readerForRun(run, readerFactory));
         }
+
+        // 多路合并
         return mergeSorter.mergeSort(
                 readers, userKeyComparator, userDefinedSeqComparator, mergeFunctionWrapper);
     }
 
-    private static RecordReader<KeyValue> readerForRun(
-            SortedRun run, FileReaderFactory<KeyValue> readerFactory) throws IOException {
+    // 基于当前 sortedRun 的过滤器
+    private static RecordReader<KeyValue> readerForRun(SortedRun run, FileReaderFactory<KeyValue> readerFactory) throws IOException {
+
         List<ReaderSupplier<KeyValue>> readers = new ArrayList<>();
+
         for (DataFileMeta file : run.files()) {
             readers.add(() -> readerFactory.createRecordReader(file));
         }
