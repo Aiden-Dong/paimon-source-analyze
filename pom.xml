@@ -52,22 +52,16 @@ under the License.
     </scm>
 
     <modules>
-        <module>paimon-benchmark</module>
         <module>paimon-codegen</module>
         <module>paimon-codegen-loader</module>
         <module>paimon-common</module>
         <module>paimon-core</module>
         <module>paimon-flink</module>
-        <module>paimon-docs</module>
-        <module>paimon-e2e-tests</module>
         <module>paimon-filesystems</module>
         <module>paimon-format</module>
-        <module>paimon-bundle</module>
         <module>paimon-hive</module>
         <module>paimon-spark</module>
         <module>paimon-service</module>
-        <module>paimon-test-utils</module>
-        <module>tools/ci/paimon-ci-tools</module>
     </modules>
 
     <properties>

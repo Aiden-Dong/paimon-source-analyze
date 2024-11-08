@@ -34,41 +34,40 @@ import java.util.stream.Collectors;
 import static java.util.Collections.emptyList;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** A class which stores all level files of merge tree. */
+/**
+ * 存储合并树所有层级文件的类。
+ **/
 public class Levels {
 
     private final Comparator<InternalRow> keyComparator;
-
-    private final TreeSet<DataFileMeta> level0;
-
-    private final List<SortedRun> levels;
+    private final TreeSet<DataFileMeta> level0;            // 存放 level=0  文件元信息集合
+    private final List<SortedRun> levels;                  // 存放 level>0  文件元信息集合
 
     private final List<DropFileCallback> dropFileCallbacks = new ArrayList<>();
 
-    public Levels(
-            Comparator<InternalRow> keyComparator, List<DataFileMeta> inputFiles, int numLevels) {
+    public Levels(Comparator<InternalRow> keyComparator, List<DataFileMeta> inputFiles, int numLevels) {
+
         this.keyComparator = keyComparator;
 
-        // in case the num of levels is not specified explicitly
-        int restoredNumLevels =
-                Math.max(
+        // 如果未明确指定层数
+        int restoredNumLevels = Math.max(
                         numLevels,
                         inputFiles.stream().mapToInt(DataFileMeta::level).max().orElse(-1) + 1);
+
         checkArgument(restoredNumLevels > 1, "Number of levels must be at least 2.");
-        this.level0 =
-                new TreeSet<>(
+
+        this.level0 = new TreeSet<>(
                         (a, b) -> {
                             if (a.maxSequenceNumber() != b.maxSequenceNumber()) {
-                                // file with larger sequence number should be in front
+                                // 序列号较大的文件应排在前
                                 return Long.compare(b.maxSequenceNumber(), a.maxSequenceNumber());
                             } else {
-                                // When two or more jobs are writing the same merge tree, it is
-                                // possible that multiple files have the same maxSequenceNumber. In
-                                // this case we have to compare their file names so that files with
-                                // same maxSequenceNumber won't be "de-duplicated" by the tree set.
+                                // 当两个或多个作业写入同一个合并树时，有可能多个文件具有相同的 maxSequenceNumber。
+                                // 在这种情况下，我们必须比较它们的文件名，以便具有相同 maxSequenceNumber 的文件不会被树集“去重”。
                                 return a.fileName().compareTo(b.fileName());
                             }
                         });
+
         this.levels = new ArrayList<>();
         for (int i = 1; i < restoredNumLevels; i++) {
             levels.add(SortedRun.empty());

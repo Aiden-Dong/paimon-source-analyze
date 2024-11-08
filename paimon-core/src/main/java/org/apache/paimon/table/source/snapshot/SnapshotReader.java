@@ -37,7 +37,9 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
-/** 使用给定的配置从指定的{@link Snapshot}读取. */
+/**
+ * 使用给定的配置从指定的{@link Snapshot}读取.
+ * */
 public interface SnapshotReader {
 
     SnapshotManager snapshotManager();

@@ -139,8 +139,8 @@ public class KeyValueFileStoreScan extends AbstractFileStoreScan {
         }
 
         return noOverlapping(entries)
-                ? filterWholeBucketPerFile(entries)
-                : filterWholeBucketAllFiles(entries);
+                ? filterWholeBucketPerFile(entries)   // 如果只有一个文件，或者是这个文件没有 level0 层文件，则 都可以进行过滤
+                : filterWholeBucketAllFiles(entries); // 如果存在 level0 层文件, 则需要看整个 bucket 是否满足
     }
 
     private List<ManifestEntry> filterWholeBucketPerFile(List<ManifestEntry> entries) {
@@ -154,8 +154,7 @@ public class KeyValueFileStoreScan extends AbstractFileStoreScan {
     }
 
     private List<ManifestEntry> filterWholeBucketAllFiles(List<ManifestEntry> entries) {
-        // entries come from the same bucket, if any of it doesn't meet the request, we could
-        // filter the bucket.
+        // 条目来自同一个 bucket，如果其中任何一个不满足请求，我们可以过滤掉整个 bucket。
         for (ManifestEntry entry : entries) {
             if (filterByValueFilter(entry)) {
                 return entries;

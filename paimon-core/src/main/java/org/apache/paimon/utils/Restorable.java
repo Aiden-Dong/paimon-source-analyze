@@ -21,18 +21,17 @@ package org.apache.paimon.utils;
 import org.apache.paimon.annotation.Public;
 
 /**
- * Operations implementing this interface can checkpoint and restore their states between different
- * instances.
+ * 实现此接口的操作可以在不同实例之间检查点和恢复其状态。
  *
- * @param <S> type of state
+ * @param <S> 状态类型
  * @since 0.4.0
  */
 @Public
 public interface Restorable<S> {
 
-    /** Extract state of the current operation instance. */
+    // 提取当前操作实例的状态。
     S checkpoint();
 
-    /** Restore state of a previous operation instance into the current operation instance. */
+    // 将先前操作实例的状态恢复到当前操作实例。
     void restore(S state);
 }

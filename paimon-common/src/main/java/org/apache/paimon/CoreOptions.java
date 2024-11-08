@@ -696,14 +696,9 @@ public class CoreOptions implements Serializable {
                     .defaultValue(false)
                     .withDescription(
                             Description.builder()
-                                    .text(
-                                            "Whether to sort plan files by partition fields, this allows you to read"
-                                                    + " according to the partition order, even if your partition writes are out of order.")
+                                    .text("是否根据分区字段对计划文件进行排序，这允许您按照分区顺序读取，即使您的分区写入是无序的.")
                                     .linebreak()
-                                    .text(
-                                            "It is recommended that you use this for streaming read of the 'append-only' table."
-                                                    + " By default, streaming read will read the full snapshot first. In order to"
-                                                    + " avoid the disorder reading for partitions, you can open this option.")
+                                    .text("建议您在流式读取“仅追加”表时使用此选项。默认情况下，流式读取将首先读取完整快照。为了避免分区读取的无序性，您可以启用此选项。")
                                     .build());
 
     @Immutable

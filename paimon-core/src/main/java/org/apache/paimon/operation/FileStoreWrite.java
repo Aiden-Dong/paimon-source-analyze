@@ -41,99 +41,95 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 /**
- * Write operation which provides {@link RecordWriter} creation and writes {@link SinkRecord} to
- * {@link FileStore}.
+ * Writer 操作，提供 {@link RecordWriter} 的创建，并将 {@link SinkRecord} 写入 {@link FileStore}。
  *
- * @param <T> type of record to write.
+ * @param <T> 要写入的记录类型。
  */
 public interface FileStoreWrite<T> extends Restorable<List<FileStoreWrite.State<T>>> {
 
     FileStoreWrite<T> withIOManager(IOManager ioManager);
 
     /**
-     * With memory pool for the current file store write.
+     * 使用内存池进行当前文件存储写入。
      *
-     * @param memoryPool the given memory pool.
+     * @param memoryPool 给定的内存池。
      */
     default FileStoreWrite<T> withMemoryPool(MemorySegmentPool memoryPool) {
         return withMemoryPoolFactory(new MemoryPoolFactory(memoryPool));
     }
 
     /**
-     * With memory pool factory for the current file store write.
+     * 使用内存池工厂进行当前文件存储写入。
      *
-     * @param memoryPoolFactory the given memory pool factory.
+     * @param memoryPoolFactory 给定的内存池工厂。
      */
     FileStoreWrite<T> withMemoryPoolFactory(MemoryPoolFactory memoryPoolFactory);
 
     /**
-     * Set whether the write operation should ignore previously stored files.
+     * 设置写入操作是否应该忽略先前存储的文件。
      *
-     * @param ignorePreviousFiles whether the write operation should ignore previously stored files.
+     * @param ignorePreviousFiles 写入操作是否应该忽略先前存储的文件。
      */
     void withIgnorePreviousFiles(boolean ignorePreviousFiles);
 
     /**
-     * We detect whether it is in batch mode, if so, we do some optimization.
+     * 我们检测是否处于批处理模式，如果是，则进行一些优化。
      *
-     * @param isStreamingMode whether in streaming mode
+     * @param isStreamingMode 是否处于流模式
      */
     void withExecutionMode(boolean isStreamingMode);
 
-    /** With metrics to measure compaction. */
+    /** 使用指标来衡量压缩。 */
     FileStoreWrite<T> withMetricRegistry(MetricRegistry metricRegistry);
 
+    // 异步压缩使用线程
     void withCompactExecutor(ExecutorService compactExecutor);
 
     /**
-     * Write the data to the store according to the partition and bucket.
-     *
-     * @param partition the partition of the data
-     * @param bucket the bucket id of the data
-     * @param data the given data
-     * @throws Exception the thrown exception when writing the record
+     * 根据分区和桶将数据写入存储。
+     * @param partition 数据的分区
+     * @param bucket 数据的桶 ID
+     * @param data 给定的数据
+     * @throws Exception 写入记录时抛出的异常
      */
     void write(BinaryRow partition, int bucket, T data) throws Exception;
 
     /**
-     * Compact data stored in given partition and bucket. Note that compaction process is only
-     * submitted and may not be completed when the method returns.
+     * 压缩存储在给定分区和桶中的数据。请注意，压缩过程仅提交，在方法返回时可能尚未完成。
      *
-     * @param partition the partition to compact
-     * @param bucket the bucket to compact
-     * @param fullCompaction whether to trigger full compaction or just normal compaction
-     * @throws Exception the thrown exception when compacting the records
+     * @param partition 要压缩的分区
+     * @param bucket 要压缩的桶
+     * @param fullCompaction 是否触发完全压缩或仅正常压缩
+     * @throws Exception 压缩记录时抛出的异常
      */
     void compact(BinaryRow partition, int bucket, boolean fullCompaction) throws Exception;
 
     /**
-     * Notify that some new files are created at given snapshot in given bucket.
+     * 通知在给定快照的给定桶中创建了一些新文件。
+     * <p>很可能这些文件是由另一个作业创建的。目前，此方法仅由专用的压缩作业用于查看由写入作业创建的文件。
      *
-     * <p>Most probably, these files are created by another job. Currently this method is only used
-     * by the dedicated compact job to see files created by writer jobs.
-     *
-     * @param snapshotId the snapshot id where new files are created
-     * @param partition the partition where new files are created
-     * @param bucket the bucket where new files are created
-     * @param files the new files themselves
+     * @param snapshotId 创建新文件快照的 ID
+     * @param partition 创建新文件的分区
+     * @param bucket 创建新文件的桶
+     * @param files 新文件本身
      */
     void notifyNewFiles(long snapshotId, BinaryRow partition, int bucket, List<DataFileMeta> files);
 
     /**
-     * Prepare commit in the write.
+     * 准备写入中的提交。
      *
-     * @param waitCompaction if this method need to wait for current compaction to complete
-     * @param commitIdentifier identifier of the commit being prepared
-     * @return the file committable list
-     * @throws Exception the thrown exception
+     * @param waitCompaction 此方法是否需要等待当前压缩完成
+     * @param commitIdentifier 正在准备提交的标识符
+     * @return 文件提交列表
+     * @throws Exception 抛出的异常
      */
     List<CommitMessage> prepareCommit(boolean waitCompaction, long commitIdentifier)
             throws Exception;
 
     /**
-     * Close the writer.
+     * 关闭写入器。
      *
-     * @throws Exception the thrown exception
+     * @throws Exception 抛出的异常
      */
     void close() throws Exception;
 

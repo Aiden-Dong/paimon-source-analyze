@@ -24,55 +24,58 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * The {@code RecordWriter} is responsible for writing data and handling in-progress files used to
- * write yet un-staged data. The incremental files ready to commit is returned to the system by the
- * {@link #prepareCommit(boolean)}.
+ * {@code RecordWriter} 负责写入数据并处理用于写入尚未暂存的数据的进行中的文件。
+ *  准备提交的增量文件由 {@link #prepareCommit(boolean)} 返回给系统。
  *
- * @param <T> type of record to write.
+ * @param <T> 要写入的记录类型。
  */
 public interface RecordWriter<T> {
 
-    /** Add a key-value element to the writer. */
+    // 向写入器添加一个键值元素。
     void write(T record) throws Exception;
 
     /**
-     * Compact files related to the writer. Note that compaction process is only submitted and may
-     * not be completed when the method returns.
+     * 压缩与写入器相关的文件。请注意，压缩过程仅提交，在方法返回时可能尚未完成。
      *
-     * @param fullCompaction whether to trigger full compaction or just normal compaction
+     * @param fullCompaction 是否触发完全压缩或仅正常压缩
      */
     void compact(boolean fullCompaction) throws Exception;
 
     /**
-     * Add files to the internal {@link org.apache.paimon.compact.CompactManager}.
+     * 将文件添加到内部的 {@link org.apache.paimon.compact.CompactManager}。
      *
-     * @param files files to add
+     * @param files 要添加的文件
      */
     void addNewFiles(List<DataFileMeta> files);
 
-    /** Get all data files maintained by this writer. */
+    // 获取此写入器维护的所有数据文件。
     Collection<DataFileMeta> dataFiles();
 
-    /** Get max sequence number of records written by this writer. */
+    /**
+     * 获取此写入器写入的记录的最大序列号。
+     **/
     long maxSequenceNumber();
 
     /**
-     * Prepare for a commit.
+     * 准备提交。
      *
-     * @param waitCompaction if this method need to wait for current compaction to complete
-     * @return Incremental files in this snapshot cycle
+     * @param waitCompaction 是否需要等待当前压缩完成
+     * @return 此快照周期中的增量文件
      */
     CommitIncrement prepareCommit(boolean waitCompaction) throws Exception;
 
-    /** Check if a compaction is in progress, or if a compaction result remains to be fetched. */
+    /**
+     * 检查是否正在进行压缩，或者是否仍有压缩结果需要获取。
+     **/
     boolean isCompacting();
 
     /**
-     * Sync the writer. The structure related to file reading and writing is thread unsafe, there
-     * are asynchronous threads inside the writer, which should be synced before reading data.
+     * 同步写入器。与文件读取和写入相关的结构是线程不安全的，写入器内部有异步线程，在读取数据之前应同步这些线程。
      */
     void sync() throws Exception;
 
-    /** Close this writer, the call will delete newly generated but not committed files. */
+    /**
+     * 关闭此写入器，调用将删除新生成但未提交的文件。
+     **/
     void close() throws Exception;
 }

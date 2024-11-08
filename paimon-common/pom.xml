@@ -153,39 +153,6 @@ under the License.
             <version>0.2.2</version>
         </dependency>
 
-        <!-- Test -->
-
-        <dependency>
-            <groupId>org.apache.paimon</groupId>
-            <artifactId>paimon-test-utils</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
-            <version>${mockito.version}</version>
-            <type>jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>${mockito.version}</version>
-            <type>jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
-            <version>${mockito.version}</version>
-            <type>jar</type>
-            <scope>test</scope>
-        </dependency>
-
         <!-- for the HDFS mini cluster test suite -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>

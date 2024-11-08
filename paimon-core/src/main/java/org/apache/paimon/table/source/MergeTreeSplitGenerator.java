@@ -60,52 +60,54 @@ public class MergeTreeSplitGenerator implements SplitGenerator {
         this.mergeEngine = mergeEngine;
     }
 
+    /***
+     * 对当前读取计划中的 同一个 partition, bucket 下面的 所有文件进行划分 split 组
+     * @param files 待
+     * @return
+     */
     @Override
     public List<SplitGroup> splitForBatch(List<DataFileMeta> files) {
+
+        // 该文件集合中没有 level 0 文件，并且所有文件中没有 delete 行记录
         boolean rawConvertible =
                 files.stream().allMatch(file -> file.level() != 0 && withoutDeleteRow(file));
+
+        // 所有文件只有一层
         boolean oneLevel =
                 files.stream().map(DataFileMeta::level).collect(Collectors.toSet()).size() == 1;
 
         if (rawConvertible && (deletionVectorsEnabled || mergeEngine == FIRST_ROW || oneLevel)) {
-            Function<DataFileMeta, Long> weightFunc =
-                    file -> Math.max(file.fileSize(), openFileCost);
+
+            Function<DataFileMeta, Long> weightFunc = file -> Math.max(file.fileSize(), openFileCost);
+            // 按照 128M 一个文件组, 如果文件太大不会切割
             return BinPacking.packForOrdered(files, weightFunc, targetSplitSize).stream()
                     .map(SplitGroup::rawConvertibleGroup)
                     .collect(Collectors.toList());
         }
 
-        /*
-         * The generator aims to parallel the scan execution by slicing the files of each bucket
-         * into multiple splits. The generation has one constraint: files with intersected key
-         * ranges (within one section) must go to the same split. Therefore, the files are first to go
-         * through the interval partition algorithm to generate sections and then through the
-         * OrderedPack algorithm. Note that the item to be packed here is each section, the capacity
-         * is denoted as the targetSplitSize, and the final number of the bins is the number of
-         * splits generated.
-         *
-         * For instance, there are files: [1, 2] [3, 4] [5, 180] [5, 190] [200, 600] [210, 700]
-         * with targetSplitSize 128M. After interval partition, there are four sections:
-         * - section1: [1, 2]
-         * - section2: [3, 4]
-         * - section3: [5, 180], [5, 190]
-         * - section4: [200, 600], [210, 700]
-         *
-         * After OrderedPack, section1 and section2 will be put into one bin (split), so the final result will be:
-         * - split1: [1, 2] [3, 4]
-         * - split2: [5, 180] [5,190]
-         * - split3: [200, 600] [210, 700]
+        /**
+         * 生成器旨在通过将每个桶的文件切片成多个拆分来并行化扫描执行。
+         * 生成有一个约束：具有相交键范围的文件（在一个分区内）必须进入同一个拆分。
+         * 因此，文件首先通过区间分区算法生成分区，然后通过有序打包算法。
+         * 请注意，这里要打包的项是每个分区，容量表示为目标拆分大小，最终的箱子数量是生成的拆分数量。
+         * 例如，有文件：[1, 2] [3, 4] [5, 180] [5, 190] [200, 600] [210, 700]，目标拆分大小为 128M。经过区间分区后，有四个分区：
+         * - 分区1：[1, 2]
+         * - 分区2：[3, 4]
+         * - 分区3：[5, 180]，[5, 190]
+         * - 分区4：[200, 600]，[210, 700]
+         * 经过有序打包后，分区1和分区2将放入一个箱子（拆分），因此最终结果将是：
+         * - 拆分1：[1, 2] [3, 4]
+         * - 拆分2：[5, 180] [5,190]
+         * - 拆分3：[200, 600] [210, 700]
          */
-        List<List<DataFileMeta>> sections =
-                new IntervalPartition(files, keyComparator)
+        List<List<DataFileMeta>> sections = new IntervalPartition(files, keyComparator)
                         .partition().stream().map(this::flatRun).collect(Collectors.toList());
 
         return packSplits(sections).stream()
-                .map(
-                        f ->
-                                f.size() == 1 && withoutDeleteRow(f.get(0))
-                                        ? SplitGroup.rawConvertibleGroup(f)
-                                        : SplitGroup.nonRawConvertibleGroup(f))
+                .map(f ->
+                        f.size() == 1 && withoutDeleteRow(f.get(0))
+                                ? SplitGroup.rawConvertibleGroup(f)
+                                : SplitGroup.nonRawConvertibleGroup(f))
                 .collect(Collectors.toList());
     }
 

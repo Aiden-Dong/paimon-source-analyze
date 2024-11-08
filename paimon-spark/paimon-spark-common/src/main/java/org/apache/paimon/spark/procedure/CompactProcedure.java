@@ -184,10 +184,9 @@ public class CompactProcedure extends BaseProcedure {
         if (orderType.equals(TableSorter.OrderType.NONE)) {
             JavaSparkContext javaSparkContext = new JavaSparkContext(spark().sparkContext());
 
-            Predicate filter = condition == null ? null
-                            : ExpressionUtils.convertConditionToPaimonPredicate(
-                                    condition, relation.output(), table.rowType(), false)
-                                .getOrElse(null);
+            Predicate filter = condition == null ?
+                    null
+                    : ExpressionUtils.convertConditionToPaimonPredicate(condition, relation.output(), table.rowType(), false).getOrElse(null);
 
             switch (bucketMode) {
                 case FIXED:

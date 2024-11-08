@@ -222,15 +222,28 @@ public class SnapshotReaderImpl implements SnapshotReader {
         return this;
     }
 
-    /** Get splits from {@link FileKind#ADD} files. */
+
+    /****
+     * 解析当前的 snapshot, 获取到对应的 Manifest 文件集合。
+     * 从 manifest 文件集中收集所有的文件元信息:
+     *    - 基于过滤条件提前过滤不需要读取的文件
+     *    - 对需要读取的文件按照 partition, bucket 分组， 对每个组的文件按照数据是否重叠，数据大小，进行切割处理。
+     *    - 生成并行读取计划 {@link PlanImpl}
+     */
     @Override
     public Plan read() {
+        //   从当前 snapshot 中合并读取有效的 datafile 文件元信息(manifest entry) {从 manifest 文件中读取}
+        //   基于过滤条件提前过滤不必要的数据文件
         FileStoreScan.Plan plan = scan.plan();
+
+        // 获取当前 plan 的 snapshot 信息
         Long snapshotId = plan.snapshotId();
 
+        // 对文件按照 (partition, bucket) 进行分组
         Map<BinaryRow, Map<Integer, List<DataFileMeta>>> files = groupByPartFiles(plan.files(FileKind.ADD));
 
-        if (options.scanPlanSortPartition()) {
+
+        if (options.scanPlanSortPartition()) { // 是否按照分区进行排序
             Map<BinaryRow, Map<Integer, List<DataFileMeta>>> newFiles = new LinkedHashMap<>();
             files.entrySet().stream()
                     .sorted((o1, o2) -> partitionComparator().compare(o1.getKey(), o2.getKey()))
@@ -238,46 +251,61 @@ public class SnapshotReaderImpl implements SnapshotReader {
             files = newFiles;
         }
 
-        List<DataSplit> splits =
-                generateSplits(
+        // 对 manifest entry 集合进行切割处理， 生成并行读取计划
+        List<DataSplit> splits = generateSplits(
                         snapshotId == null ? Snapshot.FIRST_SNAPSHOT_ID - 1 : snapshotId,
                         scanMode != ScanMode.ALL,
                         splitGenerator,
                         files);
+
         return new PlanImpl(plan.watermark(), plan.snapshotId(), (List) splits);
     }
 
+    /***
+     * 对当前待读取的数据文件集合进行切割处理，以生成 split 来并行读取
+     *  首先现对数据文件集合按照 (partition, bucket) 进行分组
+     *  然后对每个 bucket 下面的文件集合按照数据重叠范围，文件大小等因素， 进行分片处理
+     */
     private List<DataSplit> generateSplits(
             long snapshotId,
             boolean isStreaming,
             SplitGenerator splitGenerator,
             Map<BinaryRow, Map<Integer, List<DataFileMeta>>> groupedDataFiles) {
+
         List<DataSplit> splits = new ArrayList<>();
-        for (Map.Entry<BinaryRow, Map<Integer, List<DataFileMeta>>> entry :
-                groupedDataFiles.entrySet()) {
+
+        for (Map.Entry<BinaryRow, Map<Integer, List<DataFileMeta>>> entry : groupedDataFiles.entrySet()) {
+
             BinaryRow partition = entry.getKey();
+
             Map<Integer, List<DataFileMeta>> buckets = entry.getValue();
+
             for (Map.Entry<Integer, List<DataFileMeta>> bucketEntry : buckets.entrySet()) {
+                // 遍历每个分区的每个 bucket
                 int bucket = bucketEntry.getKey();
+                // 当前 bucket 下面的所有 manifest entry
                 List<DataFileMeta> bucketFiles = bucketEntry.getValue();
-                DataSplit.Builder builder =
-                        DataSplit.builder()
+
+                DataSplit.Builder builder = DataSplit.builder()
                                 .withSnapshot(snapshotId)
                                 .withPartition(partition)
                                 .withBucket(bucket)
                                 .isStreaming(isStreaming);
-                List<SplitGenerator.SplitGroup> splitGroups =
-                        isStreaming
+
+                // 对当前 bucket 下面的文件集进行切割处理, 生成 split 集合
+                List<SplitGenerator.SplitGroup> splitGroups = isStreaming
                                 ? splitGenerator.splitForStreaming(bucketFiles)
                                 : splitGenerator.splitForBatch(bucketFiles);
 
-                IndexFileMeta deletionIndexFile =
-                        deletionVectors
-                                ? indexFileHandler
-                                        .scan(snapshotId, DELETION_VECTORS_INDEX, partition, bucket)
-                                        .orElse(null)
-                                : null;
+                // 删除索引标记
+                IndexFileMeta deletionIndexFile = deletionVectors ?
+                        indexFileHandler
+                                .scan(snapshotId, DELETION_VECTORS_INDEX, partition, bucket)
+                                .orElse(null)
+                        : null;
+
                 for (SplitGenerator.SplitGroup splitGroup : splitGroups) {
+                    // 遍历所有 split
                     List<DataFileMeta> dataFiles = splitGroup.files;
                     String bucketPath = pathFactory.bucketPath(partition, bucket).toString();
                     builder.withDataFiles(dataFiles)
@@ -288,6 +316,7 @@ public class SnapshotReaderImpl implements SnapshotReader {
                                 getDeletionFiles(dataFiles, deletionIndexFile));
                     }
 
+                    // 遍历构建 split 集合
                     splits.add(builder.build());
                 }
             }

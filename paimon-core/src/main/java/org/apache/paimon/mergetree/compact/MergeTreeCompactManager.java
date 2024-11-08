@@ -109,30 +109,19 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     public void triggerCompaction(boolean fullCompaction) {
         Optional<CompactUnit> optionalUnit;
         List<LevelSortedRun> runs = levels.levelSortedRuns();
+
+        // 计算需要参与 compaction 的文件集合
         if (fullCompaction) {
-            Preconditions.checkState(
-                    taskFuture == null,
-                    "A compaction task is still running while the user forces a new compaction. This is unexpected.");
-            if (LOG.isDebugEnabled()) {
-                LOG.debug(
-                        "Trigger forced full compaction. Picking from the following runs\n{}",
-                        runs);
-            }
+
             optionalUnit = CompactStrategy.pickFullCompaction(levels.numberOfLevels(), runs);
         } else {
             if (taskFuture != null) {
                 return;
             }
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Trigger normal compaction. Picking from the following runs\n{}", runs);
-            }
-            optionalUnit =
-                    strategy.pick(levels.numberOfLevels(), runs)
+
+            optionalUnit = strategy.pick(levels.numberOfLevels(), runs)
                             .filter(unit -> unit.files().size() > 0)
-                            .filter(
-                                    unit -> unit.files().size() > 1
-                                                    || unit.files().get(0).level()
-                                                            != unit.outputLevel());
+                            .filter(unit -> unit.files().size() > 1 || unit.files().get(0).level() != unit.outputLevel());
         }
 
         optionalUnit.ifPresent(
@@ -143,24 +132,9 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                      * 如果输出级别大于 0，只要当前级别中没有较旧数据，输出就是最旧的，因此可以丢弃删除记录。
                      * 参见 CompactStrategy.pick。
                      */
-                    boolean dropDelete =
-                            unit.outputLevel() != 0
+                    boolean dropDelete = unit.outputLevel() != 0
                                     && (unit.outputLevel() >= levels.nonEmptyHighestLevel() || deletionVectorsEnabled);
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug(
-                                "Submit compaction with files (name, level, size): "
-                                        + levels.levelSortedRuns().stream()
-                                                .flatMap(lsr -> lsr.run().files().stream())
-                                                .map(
-                                                        file ->
-                                                                String.format(
-                                                                        "(%s, %d, %d)",
-                                                                        file.fileName(),
-                                                                        file.level(),
-                                                                        file.fileSize()))
-                                                .collect(Collectors.joining(", ")));
-                    }
                     submitCompaction(unit, dropDelete);
                 });
     }

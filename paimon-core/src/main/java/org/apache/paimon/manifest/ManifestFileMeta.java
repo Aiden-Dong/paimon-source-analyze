@@ -49,7 +49,10 @@ import java.util.stream.Collectors;
 import static org.apache.paimon.partition.PartitionPredicate.createPartitionPredicate;
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** Metadata of a manifest file. */
+/**
+ * Metadata of a manifest file .
+ * manifest-list entry
+ **/
 public class ManifestFileMeta {
 
     private static final Logger LOG = LoggerFactory.getLogger(ManifestFileMeta.class);
