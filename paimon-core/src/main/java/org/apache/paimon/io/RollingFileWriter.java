@@ -31,19 +31,19 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * Writer to roll over to a new file if the current size exceed the target file size.
+ * 写文件工具
+ * 当当前大小超过目标文件大小时，写入器将滚动到新文件。
  *
- * @param <T> record data type.
- * @param <R> the file metadata result.
+ * @param <T> 记录数据类型
+ * @param <R> 文件元数据结果
  */
 public class RollingFileWriter<T, R> implements FileWriter<T, List<R>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(RollingFileWriter.class);
-
     private static final int CHECK_ROLLING_RECORD_CNT = 1000;
 
     private final Supplier<? extends SingleFileWriter<T, R>> writerFactory;
-    private final long targetFileSize;
+    private final long targetFileSize;                                          // 单文件的大小上限
     private final List<AbortExecutor> closedWriters;
     private final List<R> results;
 
@@ -51,8 +51,7 @@ public class RollingFileWriter<T, R> implements FileWriter<T, List<R>> {
     private long recordCount = 0;
     private boolean closed = false;
 
-    public RollingFileWriter(
-            Supplier<? extends SingleFileWriter<T, R>> writerFactory, long targetFileSize) {
+    public RollingFileWriter(Supplier<? extends SingleFileWriter<T, R>> writerFactory, long targetFileSize) {
         this.writerFactory = writerFactory;
         this.targetFileSize = targetFileSize;
         this.results = new ArrayList<>();
@@ -64,32 +63,26 @@ public class RollingFileWriter<T, R> implements FileWriter<T, List<R>> {
         return targetFileSize;
     }
 
+    // 标识每1000行校验一次 是否达到文件大小上限
+    // 如果已经达到文件上限， 则关闭重新开一个写
     @VisibleForTesting
     boolean rollingFile() throws IOException {
-        return currentWriter.reachTargetSize(
-                recordCount % CHECK_ROLLING_RECORD_CNT == 0, targetFileSize);
+        return currentWriter.reachTargetSize(recordCount % CHECK_ROLLING_RECORD_CNT == 0, targetFileSize);
     }
 
     @Override
     public void write(T row) throws IOException {
         try {
-            // Open the current writer if write the first record or roll over happen before.
-            if (currentWriter == null) {
-                openCurrentWriter();
-            }
+
+            if (currentWriter == null) openCurrentWriter();   // 检查是否需要打开一个新的写入工具
 
             currentWriter.write(row);
             recordCount += 1;
 
-            if (rollingFile()) {
-                closeCurrentWriter();
-            }
+            if (rollingFile())  closeCurrentWriter();         // 检查是否需要关闭重新打开一个写入工具
+
         } catch (Throwable e) {
-            LOG.warn(
-                    "Exception occurs when writing file "
-                            + (currentWriter == null ? null : currentWriter.path())
-                            + ". Cleaning up.",
-                    e);
+
             abort();
             throw e;
         }

@@ -34,23 +34,24 @@ import java.util.List;
 
 import static java.util.Collections.singletonList;
 
-/** Compact task for merge tree compaction. */
+/**
+ * 合并树压缩的压缩任务。
+ **/
 public class MergeTreeCompactTask extends CompactTask {
 
-    private final long minFileSize;
+    private final long minFileSize;                      // target-file-size
     private final CompactRewriter rewriter;
-    private final int outputLevel;
+    private final int outputLevel;                        // 输出的 level 层
 
-    private final List<List<SortedRun>> partitioned;
-
-    private final boolean dropDelete;
+    private final List<List<SortedRun>> partitioned;      // 待合并的文件集合
+    private final boolean dropDelete;                     // 是否删除 delete 数据
     private final int maxLevel;
 
     // metric
     private int upgradeFilesNum;
 
     public MergeTreeCompactTask(
-            Comparator<InternalRow> keyComparator,
+            Comparator<InternalRow> keyComparator,   // b
             long minFileSize,
             CompactRewriter rewriter,
             CompactUnit unit,
@@ -73,24 +74,23 @@ public class MergeTreeCompactTask extends CompactTask {
         List<List<SortedRun>> candidate = new ArrayList<>();
         CompactResult result = new CompactResult();
 
-        // Checking the order and compacting adjacent and contiguous files
-        // Note: can't skip an intermediate file to compact, this will destroy the overall
-        // orderliness
+        // 检查顺序并压缩相邻且连续的文件
+        // 注意：不能跳过中间文件进行压缩，这会破坏整体有序性
         for (List<SortedRun> section : partitioned) {
-            if (section.size() > 1) {
+            if (section.size() > 1) {  // 标识有重叠数据
                 candidate.add(section);
             } else {
+                // 无重叠：
+                // 我们可以只升级大文件，只需更改级别，而无需重写
+                // 但对于小文件，我们会尝试压缩它
                 SortedRun run = section.get(0);
-                // No overlapping:
-                // We can just upgrade the large file and just change the level instead of
-                // rewriting it
-                // But for small files, we will try to compact it
+
                 for (DataFileMeta file : run.files()) {
                     if (file.fileSize() < minFileSize) {
-                        // Smaller files are rewritten along with the previous files
+                        // 小文件将与之前的文件一起重写
                         candidate.add(singletonList(SortedRun.fromSingle(file)));
                     } else {
-                        // Large file appear, rewrite previous and upgrade it
+                        // 大文件出现，重写之前的文件并升级它
                         rewrite(candidate, result);
                         upgrade(file, result);
                     }

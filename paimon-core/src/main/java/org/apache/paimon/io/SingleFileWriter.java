@@ -67,9 +67,7 @@ public abstract class SingleFileWriter<T, R> implements FileWriter<T, R> {
             out = fileIO.newOutputStream(path, false);
             writer = factory.create(out, compression);
         } catch (IOException e) {
-            LOG.warn(
-                    "Failed to open the bulk writer, closing the output stream and throw the error.",
-                    e);
+
             if (out != null) {
                 abort();
             }
@@ -100,7 +98,7 @@ public abstract class SingleFileWriter<T, R> implements FileWriter<T, R> {
             recordCount++;
             return rowData;
         } catch (Throwable e) {
-            LOG.warn("Exception occurs when writing file " + path + ". Cleaning up.", e);
+
             abort();
             throw e;
         }

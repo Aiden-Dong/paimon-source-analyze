@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/** Compact task. */
+/** 压缩任务 */
 public abstract class CompactTask implements Callable<CompactResult> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompactTask.class);

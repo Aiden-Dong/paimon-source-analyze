@@ -53,7 +53,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     private final Levels levels;
     private final CompactStrategy strategy;
     private final Comparator<InternalRow> keyComparator;
-    private final long compactionFileSize;
+    private final long compactionFileSize;    // target-file-size
     private final int numSortedRunStopTrigger;
     private final CompactRewriter rewriter;
 
@@ -144,7 +144,9 @@ public class MergeTreeCompactManager extends CompactFutureManager {
         return levels;
     }
 
+    // 异步提交执行 Compaction 操作
     private void submitCompaction(CompactUnit unit, boolean dropDelete) {
+
         MergeTreeCompactTask task = new MergeTreeCompactTask(
                         keyComparator,
                         compactionFileSize,
@@ -153,17 +155,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
                         dropDelete,
                         levels.maxLevel(),
                         metricsReporter);
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(
-                    "Pick these files (name, level, size) for compaction: {}",
-                    unit.files().stream()
-                            .map(
-                                    file ->
-                                            String.format(
-                                                    "(%s, %d, %d)",
-                                                    file.fileName(), file.level(), file.fileSize()))
-                            .collect(Collectors.joining(", ")));
-        }
+
         taskFuture = executor.submit(task);
     }
 

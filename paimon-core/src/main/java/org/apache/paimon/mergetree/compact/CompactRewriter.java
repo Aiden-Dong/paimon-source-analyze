@@ -25,32 +25,31 @@ import org.apache.paimon.mergetree.SortedRun;
 import java.io.Closeable;
 import java.util.List;
 
-/** Rewrite sections to new level. */
+/**
+ * 重写分区到新级别。
+ **/
 public interface CompactRewriter extends Closeable {
 
     /**
-     * Rewrite sections to new level.
+     * 重写分区到新级别。
      *
-     * @param outputLevel new level
-     * @param dropDelete whether to drop the deletion, see {@link
-     *     MergeTreeCompactManager#triggerCompaction}
-     * @param sections list of sections (section is a list of {@link SortedRun}s, and key intervals
-     *     between sections do not overlap)
-     * @return compaction result
-     * @throws Exception exception
+     * @param outputLevel 新级别
+     * @param dropDelete 是否删除删除，请参阅 {@link MergeTreeCompactManager#triggerCompaction}
+     * @param sections 分区列表（分区是 {@link SortedRun} 的列表，分区之间的键区间不重叠）
+     * @return 压缩结果
+     * @throws Exception 异常
      */
     CompactResult rewrite(int outputLevel, boolean dropDelete, List<List<SortedRun>> sections)
             throws Exception;
 
     /**
-     * Upgrade file to new level, usually file data is not rewritten, only the metadata is updated.
-     * But in some certain scenarios, we must rewrite file too, e.g. {@link
-     * ChangelogMergeTreeRewriter}
+     * 将文件升级到新级别，通常文件数据不会被重写，只有元数据会被更新。
+     * 但在某些特定情况下，我们也必须重写文件，例如 {@link ChangelogMergeTreeRewriter}。
      *
-     * @param outputLevel new level
-     * @param file file to be updated
-     * @return compaction result
-     * @throws Exception exception
+     * @param outputLevel 新级别
+     * @param file 要更新的文件
+     * @return 压缩结果
+     * @throws Exception 异常
      */
     CompactResult upgrade(int outputLevel, DataFileMeta file) throws Exception;
 }

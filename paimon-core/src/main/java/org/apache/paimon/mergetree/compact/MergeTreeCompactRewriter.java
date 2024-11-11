@@ -41,7 +41,9 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 
-/** Default {@link CompactRewriter} for merge trees. */
+/**
+ * 合并树的默认 {@link CompactRewriter}。
+ **/
 public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
 
     protected final FileReaderFactory<KeyValue> readerFactory;
@@ -72,16 +74,16 @@ public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
         return rewriteCompaction(outputLevel, dropDelete, sections);
     }
 
-    protected CompactResult rewriteCompaction(
-            int outputLevel, boolean dropDelete, List<List<SortedRun>> sections) throws Exception {
-        RollingFileWriter<KeyValue, DataFileMeta> writer =
-                writerFactory.createRollingMergeTreeFileWriter(outputLevel);
+    protected CompactResult rewriteCompaction(int outputLevel, boolean dropDelete, List<List<SortedRun>> sections) throws Exception {
+
+        // 创建写工具， 写出到对应的level层
+        RollingFileWriter<KeyValue, DataFileMeta> writer = writerFactory.createRollingMergeTreeFileWriter(outputLevel);
+
         RecordReader<KeyValue> reader = null;
+
         Exception collectedExceptions = null;
         try {
-            reader =
-                    readerForMergeTree(
-                            sections, new ReducerMergeFunctionWrapper(mfFactory.create()));
+            reader = readerForMergeTree(sections, new ReducerMergeFunctionWrapper(mfFactory.create()));
             if (dropDelete) {
                 reader = new DropDeleteReader(reader);
             }
