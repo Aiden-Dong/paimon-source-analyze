@@ -44,7 +44,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
-/** Compact manager for {@link KeyValueFileStore}. */
+/** {@link KeyValueFileStore} 的压缩管理器。 */
 public class MergeTreeCompactManager extends CompactFutureManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(MergeTreeCompactManager.class);
@@ -108,16 +108,16 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     @Override
     public void triggerCompaction(boolean fullCompaction) {
         Optional<CompactUnit> optionalUnit;
-        List<LevelSortedRun> runs = levels.levelSortedRuns();
+
+        List<LevelSortedRun> runs = levels.levelSortedRuns();     // 获取包含 level0 在内的所有的待读取的 SortedRun
 
         // 计算需要参与 compaction 的文件集合
-        if (fullCompaction) {
-
+        if (fullCompaction) {   // full-compaction
             optionalUnit = CompactStrategy.pickFullCompaction(levels.numberOfLevels(), runs);
-        } else {
-            if (taskFuture != null) {
-                return;
-            }
+
+        } else {                // triger-compaction
+
+            if (taskFuture != null) return;
 
             optionalUnit = strategy.pick(levels.numberOfLevels(), runs)
                             .filter(unit -> unit.files().size() > 0)
@@ -126,7 +126,7 @@ public class MergeTreeCompactManager extends CompactFutureManager {
 
         optionalUnit.ifPresent(
                 unit -> {
-                    /*
+                    /***
                      * 只要没有较旧的数据，我们就可以丢弃删除记录。
                      * 如果输出级别为 0，可能存在未参与压缩的较旧数据。
                      * 如果输出级别大于 0，只要当前级别中没有较旧数据，输出就是最旧的，因此可以丢弃删除记录。

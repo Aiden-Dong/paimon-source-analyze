@@ -174,8 +174,8 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
                         .flatMap(Collection::stream)
                         .mapToLong(w -> w.lastModifiedCommitIdentifier)
                         .max()
-                        .orElse(Long.MIN_VALUE)
-                == Long.MIN_VALUE) {
+                        .orElse(Long.MIN_VALUE) == Long.MIN_VALUE) {
+
             // 首次提交的优化。
             // 如果这是首次提交，则没有写入者之前修改过提交，因此 `latestCommittedIdentifier` 的值无关紧要。
             // 如果没有此优化，可能需要扫描所有快照，只是为了发现该用户没有之前的快照，这样效率非常低。
@@ -208,19 +208,22 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
                 // 调用write 的预提交过程
                 CommitIncrement increment = writerContainer.writer.prepareCommit(waitCompaction);
                 List<IndexFileMeta> newIndexFiles = new ArrayList<>();
+
                 if (writerContainer.indexMaintainer != null) {
                     newIndexFiles.addAll(writerContainer.indexMaintainer.prepareCommit());
                 }
+
                 if (writerContainer.deletionVectorsMaintainer != null) {
                     newIndexFiles.addAll(writerContainer.deletionVectorsMaintainer.prepareCommit());
                 }
-                CommitMessageImpl committable =
-                        new CommitMessageImpl(
+
+                CommitMessageImpl committable = new CommitMessageImpl(
                                 partition,
                                 bucket,
                                 increment.newFilesIncrement(),
                                 increment.compactIncrement(),
                                 new IndexIncrement(newIndexFiles));
+
                 result.add(committable);
 
                 if (committable.isEmpty()) {

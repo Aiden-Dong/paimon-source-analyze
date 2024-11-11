@@ -35,7 +35,7 @@ public interface CompactRewriter extends Closeable {
      *
      * @param outputLevel 新级别
      * @param dropDelete 是否删除删除，请参阅 {@link MergeTreeCompactManager#triggerCompaction}
-     * @param sections 分区列表（分区是 {@link SortedRun} 的列表，分区之间的键区间不重叠）
+     * @param sections 待压缩的文件集合
      * @return 压缩结果
      * @throws Exception 异常
      */

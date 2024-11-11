@@ -52,6 +52,7 @@ public class IntervalPartition {
      *
      * <p>外层列表的元素是不同的区段。区段之间的键区间不重叠。这个额外的层次用于最小化同时处理的 {@link SortedRun} 数量。
      * <p>内层列表的元素是某个区段内的 {@link SortedRun}。
+     * <p>而且 List<SortedRun> 是有序排列的
      *
      * <p>用户应当按照以下方式使用结果：
      *

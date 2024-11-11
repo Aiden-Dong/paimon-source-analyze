@@ -265,19 +265,21 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
             @Nullable FieldsComparator userDefinedSeqComparator,
             Levels levels,
             @Nullable DeletionVectorsMaintainer dvMaintainer) {
+
         DeletionVector.Factory dvFactory = DeletionVector.factory(dvMaintainer);
-        FileReaderFactory<KeyValue> readerFactory =
-                readerFactoryBuilder.build(partition, bucket, dvFactory);
+        FileReaderFactory<KeyValue> readerFactory = readerFactoryBuilder.build(partition, bucket, dvFactory);
+
         if (recordLevelExpire != null) {
             readerFactory = recordLevelExpire.wrap(readerFactory);
         }
-        KeyValueFileWriterFactory writerFactory =
-                writerFactoryBuilder.build(partition, bucket, options);
+
+        KeyValueFileWriterFactory writerFactory = writerFactoryBuilder.build(partition, bucket, options);
         MergeSorter mergeSorter = new MergeSorter(options, keyType, valueType, ioManager);
         int maxLevel = options.numLevels() - 1;
-        MergeEngine mergeEngine = options.mergeEngine();
+        MergeEngine mergeEngine = options.mergeEngine();   // 合并引擎
         ChangelogProducer changelogProducer = options.changelogProducer();
         LookupStrategy lookupStrategy = options.lookupStrategy();
+
         if (changelogProducer.equals(FULL_COMPACTION)) {
             return new FullChangelogMergeTreeCompactRewriter(
                     maxLevel,
@@ -290,37 +292,34 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
                     mergeSorter,
                     valueEqualiserSupplier.get(),
                     options.changelogRowDeduplicate());
+
         } else if (lookupStrategy.needLookup) {
             LookupLevels.ValueProcessor<?> processor;
             LookupMergeTreeCompactRewriter.MergeFunctionWrapperFactory<?> wrapperFactory;
             FileReaderFactory<KeyValue> lookupReaderFactory = readerFactory;
+
             if (lookupStrategy.isFirstRow) {
                 if (options.deletionVectorsEnabled()) {
-                    throw new UnsupportedOperationException(
-                            "First row merge engine does not need deletion vectors because there is no deletion of old data in this merge engine.");
+                    throw new UnsupportedOperationException("First row merge engine does not need deletion vectors because there is no deletion of old data in this merge engine.");
                 }
-                lookupReaderFactory =
-                        readerFactoryBuilder
+                lookupReaderFactory = readerFactoryBuilder
                                 .copyWithoutProjection()
                                 .withValueProjection(new int[0][])
                                 .build(partition, bucket, dvFactory);
                 processor = new ContainsValueProcessor();
                 wrapperFactory = new FirstRowMergeFunctionWrapperFactory();
             } else {
-                processor =
-                        lookupStrategy.deletionVector
-                                ? new PositionedKeyValueProcessor(
-                                        valueType,
-                                        lookupStrategy.produceChangelog
-                                                || mergeEngine != DEDUPLICATE)
+                processor = lookupStrategy.deletionVector
+                                ? new PositionedKeyValueProcessor(valueType, lookupStrategy.produceChangelog || mergeEngine != DEDUPLICATE)
                                 : new KeyValueProcessor(valueType);
-                wrapperFactory =
-                        new LookupMergeFunctionWrapperFactory<>(
+
+                wrapperFactory = new LookupMergeFunctionWrapperFactory<>(
                                 valueEqualiserSupplier.get(),
                                 options.changelogRowDeduplicate(),
                                 lookupStrategy,
                                 UserDefinedSeqComparator.create(valueType, options));
             }
+
             return new LookupMergeTreeCompactRewriter(
                     maxLevel,
                     mergeEngine,

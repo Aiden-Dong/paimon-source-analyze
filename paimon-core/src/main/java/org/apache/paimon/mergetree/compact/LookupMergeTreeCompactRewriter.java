@@ -45,8 +45,7 @@ import static org.apache.paimon.mergetree.compact.ChangelogMergeTreeRewriter.Upg
 import static org.apache.paimon.mergetree.compact.ChangelogMergeTreeRewriter.UpgradeStrategy.NO_CHANGELOG_NO_REWRITE;
 
 /**
- * A {@link MergeTreeCompactRewriter} which produces changelog files by lookup for the compaction
- * involving level 0 files.
+ * 用于合并涉及级别 0 文件的压缩的 {@link MergeTreeCompactRewriter}，它通过查找生成变更日志文件。
  */
 public class LookupMergeTreeCompactRewriter<T> extends ChangelogMergeTreeRewriter {
 

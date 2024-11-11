@@ -60,6 +60,7 @@ public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
             @Nullable FieldsComparator userDefinedSeqComparator,
             MergeFunctionFactory<KeyValue> mfFactory,
             MergeSorter mergeSorter) {
+
         this.readerFactory = readerFactory;
         this.writerFactory = writerFactory;
         this.keyComparator = keyComparator;
@@ -69,8 +70,7 @@ public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
     }
 
     @Override
-    public CompactResult rewrite(
-            int outputLevel, boolean dropDelete, List<List<SortedRun>> sections) throws Exception {
+    public CompactResult rewrite(int outputLevel, boolean dropDelete, List<List<SortedRun>> sections) throws Exception {
         return rewriteCompaction(outputLevel, dropDelete, sections);
     }
 
@@ -78,10 +78,9 @@ public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
 
         // 创建写工具， 写出到对应的level层
         RollingFileWriter<KeyValue, DataFileMeta> writer = writerFactory.createRollingMergeTreeFileWriter(outputLevel);
-
         RecordReader<KeyValue> reader = null;
-
         Exception collectedExceptions = null;
+
         try {
             reader = readerForMergeTree(sections, new ReducerMergeFunctionWrapper(mfFactory.create()));
             if (dropDelete) {
@@ -108,8 +107,7 @@ public class MergeTreeCompactRewriter extends AbstractCompactRewriter {
         return new CompactResult(before, writer.result());
     }
 
-    protected <T> RecordReader<T> readerForMergeTree(
-            List<List<SortedRun>> sections, MergeFunctionWrapper<T> mergeFunctionWrapper)
+    protected <T> RecordReader<T> readerForMergeTree(List<List<SortedRun>> sections, MergeFunctionWrapper<T> mergeFunctionWrapper)
             throws IOException {
         return MergeTreeReaders.readerForMergeTree(
                 sections,

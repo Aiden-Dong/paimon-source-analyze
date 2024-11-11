@@ -408,9 +408,7 @@ public class CoreOptions implements Serializable {
             key("num-sorted-run.compaction-trigger")
                     .intType()
                     .defaultValue(5)
-                    .withDescription(
-                            "The sorted run number to trigger compaction. Includes level0 files (one file one sorted run) and "
-                                    + "high-level runs (one level one sorted run).");
+                    .withDescription("触发压缩的排序运行数。包括级别 0 文件（一个文件一个排序运行）和高级别运行（一个级别一个排序运行）。");
 
     public static final ConfigOption<Integer> NUM_SORTED_RUNS_STOP_TRIGGER =
             key("num-sorted-run.stop-trigger")
@@ -424,8 +422,7 @@ public class CoreOptions implements Serializable {
             key("num-levels")
                     .intType()
                     .noDefaultValue()
-                    .withDescription(
-                            "Total level number, for example, there are 3 levels, including 0,1,2 levels.");
+                    .withDescription("总层数，例如，有 3 层，包括第 0 层、第 1 层和第 2 层。");
 
     public static final ConfigOption<Boolean> COMMIT_FORCE_COMPACT =
             key("commit.force-compact")
@@ -1435,10 +1432,10 @@ public class CoreOptions implements Serializable {
     }
 
     public int numLevels() {
-        // By default, this ensures that the compaction does not fall to level 0, but at least to
-        // level 1
+        // 默认情况下，这确保压缩不会降至级别 0，而是至少降至级别 1
         Integer numLevels = options.get(NUM_LEVELS);
         if (numLevels == null) {
+            // 默认 6 层 [0,1,2,3,4,5]
             numLevels = MathUtils.incrementSafely(numSortedRunCompactionTrigger());
         }
         return numLevels;
@@ -1778,15 +1775,15 @@ public class CoreOptions implements Serializable {
         return options.get(RECORD_LEVEL_TIME_FIELD);
     }
 
-    /** Specifies the merge engine for table with primary key. */
+    /** 为带主键的表指定合并引擎。 */
     public enum MergeEngine implements DescribedEnum {
-        DEDUPLICATE("deduplicate", "De-duplicate and keep the last row."),
+        DEDUPLICATE("deduplicate", "去重并保留最后一行。"),
 
-        PARTIAL_UPDATE("partial-update", "Partial update non-null fields."),
+        PARTIAL_UPDATE("partial-update", "部分更新非空字段。"),
 
-        AGGREGATE("aggregation", "Aggregate fields with same primary key."),
+        AGGREGATE("aggregation", "聚合具有相同主键的字段。"),
 
-        FIRST_ROW("first-row", "De-duplicate and keep the first row.");
+        FIRST_ROW("first-row", "去重并保留第一行。");
 
         private final String value;
         private final String description;

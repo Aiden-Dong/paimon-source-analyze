@@ -43,7 +43,10 @@ public class MergeTreeCompactTask extends CompactTask {
     private final CompactRewriter rewriter;
     private final int outputLevel;                        // 输出的 level 层
 
-    private final List<List<SortedRun>> partitioned;      // 待合并的文件集合
+    // 待合并的文件集合
+    // 每个 List<SortedRun> 之间数据是不重叠的
+    //     List<SortedRun> 内部， 不同的 SortedRun 之间数据可能会重叠
+    private final List<List<SortedRun>> partitioned;
     private final boolean dropDelete;                     // 是否删除 delete 数据
     private final int maxLevel;
 
@@ -77,7 +80,7 @@ public class MergeTreeCompactTask extends CompactTask {
         // 检查顺序并压缩相邻且连续的文件
         // 注意：不能跳过中间文件进行压缩，这会破坏整体有序性
         for (List<SortedRun> section : partitioned) {
-            if (section.size() > 1) {  // 标识有重叠数据
+            if (section.size() > 1) {  // 表示有重叠数据，需要进行压缩处理
                 candidate.add(section);
             } else {
                 // 无重叠：
@@ -86,11 +89,10 @@ public class MergeTreeCompactTask extends CompactTask {
                 SortedRun run = section.get(0);
 
                 for (DataFileMeta file : run.files()) {
-                    if (file.fileSize() < minFileSize) {
-                        // 小文件将与之前的文件一起重写
-                        candidate.add(singletonList(SortedRun.fromSingle(file)));
+                    if (file.fileSize() < minFileSize) {                           // 文件太小了，需要合并
+                        candidate.add(singletonList(SortedRun.fromSingle(file)));  // 小文件将与之前的文件一起重写
                     } else {
-                        // 大文件出现，重写之前的文件并升级它
+                        // 大文件出现，重写之前的文件并升级它, 必须要将
                         rewrite(candidate, result);
                         upgrade(file, result);
                     }
@@ -127,6 +129,12 @@ public class MergeTreeCompactTask extends CompactTask {
         }
     }
 
+    /***
+     * 需要将当前的文件重新合并压缩， 写入到新的文件中
+     *
+     * @param candidate 待压缩的文件集合
+     * @param toUpdate  用于收集的压缩结果信息
+     */
     private void rewrite(List<List<SortedRun>> candidate, CompactResult toUpdate) throws Exception {
         if (candidate.isEmpty()) {
             return;
@@ -135,7 +143,7 @@ public class MergeTreeCompactTask extends CompactTask {
             List<SortedRun> section = candidate.get(0);
             if (section.size() == 0) {
                 return;
-            } else if (section.size() == 1) {
+            } else if (section.size() == 1) {   // 如果待压缩的 sortrun 只有一个， 则直接更新
                 for (DataFileMeta file : section.get(0).files()) {
                     upgrade(file, toUpdate);
                 }
@@ -146,6 +154,12 @@ public class MergeTreeCompactTask extends CompactTask {
         rewriteImpl(candidate, toUpdate);
     }
 
+    /***
+     * 需要将当前的文件重新合并压缩， 写入到新的文件中
+     *
+     * @param candidate 待压缩的文件集合
+     * @param toUpdate  用于收集的压缩结果信息
+     */
     private void rewriteImpl(List<List<SortedRun>> candidate, CompactResult toUpdate)
             throws Exception {
         CompactResult rewriteResult = rewriter.rewrite(outputLevel, dropDelete, candidate);

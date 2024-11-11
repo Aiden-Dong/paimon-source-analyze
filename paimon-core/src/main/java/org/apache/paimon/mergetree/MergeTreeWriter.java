@@ -339,6 +339,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
         compactChangelog.addAll(result.changelog());
     }
 
+    // 如果存在异步 Compaction 任务， 则等待 compaction 任务完成
     private void trySyncLatestCompaction(boolean blocking) throws Exception {
         Optional<CompactResult> result = compactManager.getCompactionResult(blocking);
         result.ifPresent(this::updateCompactResult);

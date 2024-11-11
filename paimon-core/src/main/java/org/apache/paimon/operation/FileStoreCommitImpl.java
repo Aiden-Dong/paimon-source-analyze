@@ -225,7 +225,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         int generatedSnapshot = 0;
         int attempts = 0;
         Snapshot latestSnapshot = null;
-        Long safeLatestSnapshotId = null;    // 当前安全可用的 laters - snapshot (经过安全校验以后)
+        Long safeLatestSnapshotId = null;                         // 当前安全可用的 laters - snapshot (经过安全校验以后)
         List<SimpleFileEntry> baseEntries = new ArrayList<>();
 
         // 整理收集变更信息
@@ -657,6 +657,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         int cnt = 0;  // 重试次数
 
         while (true) {
+            // 从 last 文件中读取
             Snapshot latestSnapshot = snapshotManager.latestSnapshot(branchName);  // 获取最终的 snapshot id
 
             cnt++;
@@ -752,7 +753,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             String branchName,
             @Nullable String newStatsFileName) {
 
-        // TODO : 为待提交的 snapshot 生成 ID
+        // TODO : 为待提交的 snapshot 生成 ID,  latestSnapshotId + 1
         long newSnapshotId = latestSnapshot == null ? Snapshot.FIRST_SNAPSHOT_ID : latestSnapshot.id() + 1;
 
         // 基于最新的 snapshot ，确定 snapshot 存储位置
@@ -769,7 +770,6 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 LOG.debug("  * " + entry.toString());
             }
         }
-
 
         // TODO : 检查待提交的snapshot 跟 表中最新的 snapshot 是否有冲突
         if (latestSnapshot != null && conflictCheck.shouldCheck(latestSnapshot.id())) {
@@ -802,8 +802,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 // read all previous manifest files
                 oldMetas.addAll(previousManifests);
 
-                // 读取最后一个快照以补全 bucket 的偏移，当 logOffsets 未包含所有 bucket 时
-                // log 文件
+                // 读取最后一个快照以补全 bucket 的偏移，当 logOffsets 未包含所有 bucket 时 log 文件
                 Map<Integer, Long> latestLogOffsets = latestSnapshot.logOffsets();
 
                 if (latestLogOffsets != null) {
@@ -820,17 +819,11 @@ public class FileStoreCommitImpl implements FileStoreCommit {
                 previousIndexManifest = latestSnapshot.indexManifest();
             }
 
-
-            // merge manifest files with changes
-            // 合并历史 Manifest 文件与新的
+            // 合并历史 Manifest 文件落地到 base
             newMetas.addAll(
-                    ManifestFileMeta.merge(
-                            oldMetas,
-                            manifestFile,
-                            manifestTargetSize.getBytes(),
-                            manifestMergeMinCount,
-                            manifestFullCompactionSize.getBytes(),
-                            partitionType));
+                    ManifestFileMeta.merge(oldMetas, manifestFile, manifestTargetSize.getBytes(),
+                            manifestMergeMinCount, manifestFullCompactionSize.getBytes(), partitionType)
+            );
 
             // 写入一个新的 manifest-list base 文件
             previousChangesListName = manifestList.write(newMetas);
@@ -895,14 +888,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
         } catch (Throwable e) {
             // 如果提交过程中发生错误， 则清理 当前写入的中间 manifest 文件
-            cleanUpTmpManifests(
-                    previousChangesListName,
-                    newChangesListName,
-                    changelogListName,
-                    newIndexManifest,
-                    oldMetas,
-                    newMetas,
-                    changelogMetas);
+            cleanUpTmpManifests(previousChangesListName, newChangesListName, changelogListName, newIndexManifest, oldMetas, newMetas, changelogMetas);
             throw new RuntimeException(
                     String.format(
                             "Exception occurs when preparing snapshot #%d (path %s) by user %s "
@@ -920,6 +906,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         try {
 
             Callable<Boolean> callable = () -> {
+                // 如果已经存在这个路径， 则报冲突失败
                 boolean committed = fileIO.writeFileUtf8(newSnapshotPath, newSnapshot.toJson());
                 if (committed) {
                     snapshotManager.commitLatestHint(newSnapshotId, branchName);

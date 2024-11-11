@@ -35,11 +35,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** Utility class to create commonly used {@link RecordReader}s for merge trees. */
+/** 用于创建合并树常用的 {@link RecordReader} 的实用类。 */
 public class MergeTreeReaders {
 
     private MergeTreeReaders() {}
 
+    // 生成合并读操作
     public static <T> RecordReader<T> readerForMergeTree(
             List<List<SortedRun>> sections,
             FileReaderFactory<KeyValue> readerFactory,

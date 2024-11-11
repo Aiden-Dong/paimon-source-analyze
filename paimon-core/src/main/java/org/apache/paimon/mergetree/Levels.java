@@ -45,13 +45,16 @@ public class Levels {
 
     private final List<DropFileCallback> dropFileCallbacks = new ArrayList<>();
 
+    /***
+     * @param keyComparator    比较器
+     * @param inputFiles       当前要读取的所有文件
+     * @param numLevels        level 树的最高等级
+     */
     public Levels(Comparator<InternalRow> keyComparator, List<DataFileMeta> inputFiles, int numLevels) {
 
         this.keyComparator = keyComparator;
 
-        // 如果未明确指定层数
-        int restoredNumLevels = Math.max(
-                        numLevels,
+        int restoredNumLevels = Math.max(numLevels,
                         inputFiles.stream().mapToInt(DataFileMeta::level).max().orElse(-1) + 1);
 
         checkArgument(restoredNumLevels > 1, "Number of levels must be at least 2.");
@@ -73,6 +76,8 @@ public class Levels {
             levels.add(SortedRun.empty());
         }
 
+        // 遍历所有要读取的文件集合， level=0 的文件塞入到 level0 变量中
+        //                        level>0 的文件塞入 levels<SortedRun> 中
         Map<Integer, List<DataFileMeta>> levelMap = new HashMap<>();
         for (DataFileMeta file : inputFiles) {
             levelMap.computeIfAbsent(file.level(), level -> new ArrayList<>()).add(file);
@@ -98,19 +103,23 @@ public class Levels {
         level0.add(file);
     }
 
+    // 获取 level>0 层的 SortedRun
     public SortedRun runOfLevel(int level) {
         checkArgument(level > 0, "Level0 does not have one single sorted run.");
         return levels.get(level - 1);
     }
 
+    // 获取最高的 level 数
     public int numberOfLevels() {
         return levels.size() + 1;
     }
 
+    // 获取最高的 level 数
     public int maxLevel() {
         return levels.size();
     }
 
+    //
     public int numberOfSortedRuns() {
         int numberOfSortedRuns = level0.size();
         for (SortedRun run : levels) {
@@ -121,7 +130,7 @@ public class Levels {
         return numberOfSortedRuns;
     }
 
-    /** @return the highest non-empty level or -1 if all levels empty. */
+    // 获取有效（非空）的最高层
     public int nonEmptyHighestLevel() {
         int i;
         for (i = levels.size() - 1; i >= 0; i--) {
@@ -175,9 +184,7 @@ public class Levels {
     }
 
     private void updateLevel(int level, List<DataFileMeta> before, List<DataFileMeta> after) {
-        if (before.isEmpty() && after.isEmpty()) {
-            return;
-        }
+        if (before.isEmpty() && after.isEmpty())  return;
 
         if (level == 0) {
             before.forEach(level0::remove);

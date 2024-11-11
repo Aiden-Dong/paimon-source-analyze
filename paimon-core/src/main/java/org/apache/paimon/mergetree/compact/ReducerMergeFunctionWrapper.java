@@ -21,13 +21,12 @@ package org.apache.paimon.mergetree.compact;
 import org.apache.paimon.KeyValue;
 
 /**
- * Wrapper for {@link MergeFunction}s which works like a reducer.
+ * 作为 reducer 的 {@link MergeFunction} 的包装器。
  *
- * <p>A reducer is a type of function. If there is only one input the result is equal to that input;
- * Otherwise the result is calculated by merging all the inputs in some way.
+ * <p>reducer 是一种函数类型。如果只有一个输入，则结果等于该输入；
+ * 否则，结果是通过某种方式合并所有输入来计算的。
  *
- * <p>This wrapper optimize the wrapped {@link MergeFunction}. If there is only one input, the input
- * will be stored and the inner merge function will not be called, thus saving some computing time.
+ * <p>此包装器优化了包装的 {@link MergeFunction}。如果只有一个输入，则将存储输入，并且不会调用内部合并函数，从而节省一些计算时间。
  */
 public class ReducerMergeFunctionWrapper implements MergeFunctionWrapper<KeyValue> {
 

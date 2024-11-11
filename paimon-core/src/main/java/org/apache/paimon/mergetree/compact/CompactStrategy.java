@@ -24,21 +24,27 @@ import org.apache.paimon.mergetree.LevelSortedRun;
 import java.util.List;
 import java.util.Optional;
 
-/** Compact strategy to decide which files to select for compaction. */
+/**
+ * 决定选择哪些文件进行压缩的压缩策略。
+ * */
 public interface CompactStrategy {
 
     /**
-     * Pick compaction unit from runs.
+     * 从运行中选择压缩单元。
      *
      * <ul>
-     *   <li>compaction is runs-based, not file-based.
-     *   <li>level 0 is special, one run per file; all other levels are one run per level.
-     *   <li>compaction is sequential from small level to large level.
+     *   <li>压缩基于运行，而不是基于文件。</li>
+     *   <li>级别 0 是特殊的，每个文件一个运行；所有其他级别每个级别一个运行。</li>
+     *   <li>压缩从小级别到大级别是顺序的。</li>
      * </ul>
      */
     Optional<CompactUnit> pick(int numLevels, List<LevelSortedRun> runs);
 
-    /** Pick a compaction unit consisting of all existing files. */
+    /***
+     * 将当前的所有文件加入压缩
+     * @param numLevels   最高的 level 层
+     * @param runs        所有待排序的 SortedRun
+     */
     static Optional<CompactUnit> pickFullCompaction(int numLevels, List<LevelSortedRun> runs) {
         int maxLevel = numLevels - 1;
         if (runs.isEmpty() || (runs.size() == 1 && runs.get(0).level() == maxLevel)) {

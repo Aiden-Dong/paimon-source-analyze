@@ -60,8 +60,7 @@ public class SortedRun {
         return new SortedRun(sortedFiles);
     }
 
-    public static SortedRun fromUnsorted(
-            List<DataFileMeta> unsortedFiles, Comparator<InternalRow> keyComparator) {
+    public static SortedRun fromUnsorted(List<DataFileMeta> unsortedFiles, Comparator<InternalRow> keyComparator) {
         unsortedFiles.sort((o1, o2) -> keyComparator.compare(o1.minKey(), o2.minKey()));
         SortedRun run = new SortedRun(unsortedFiles);
         run.validate(keyComparator);
