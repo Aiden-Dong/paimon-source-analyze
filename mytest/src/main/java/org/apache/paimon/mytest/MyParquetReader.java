@@ -43,7 +43,7 @@ public class MyParquetReader {
   public static void main(String[] args) throws IOException {
     // 确定 Parquet 文件的路径
     //String parquetFilePath = "file:///Users/lan/tmp/paimon-catalog/my_db.db/parquet/data-88800912-ec20-4661-af6c-f25857e9f7ec-0.parquet";
-    String parquetFilePath = "file:///Users/lan/tmp/part-00038-26cbc036-a790-4c31-83b3-a153fdbdaab1-c000";
+    String parquetFilePath = "output/demo.parquet";
 
     // 创建 Hadoop 配置和文件系统对象
     Configuration configuration = new Configuration();
@@ -102,7 +102,7 @@ public class MyParquetReader {
         while((page = pageReader.readPage()) != null){
             if (page instanceof DataPageV1){
               Statistics<?> statistics = ((DataPageV1) page).getStatistics();
-              System.out.println("V1 : " + statistics);
+              System.out.println("V1 : " + statistics.genericGetMax());
             }else if(page instanceof DataPageV2){
               Statistics<?> statistics = ((DataPageV2) page).getStatistics();
               System.out.println("V2 : " + statistics);
