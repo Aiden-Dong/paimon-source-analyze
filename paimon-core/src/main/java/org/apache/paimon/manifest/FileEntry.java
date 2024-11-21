@@ -115,14 +115,21 @@ public interface FileEntry {
         return map.values();
     }
 
-    static void mergeEntries(
-            ManifestFile manifestFile,
+    /***
+     *
+     * @param manifestFile
+     * @param manifestFiles
+     * @param map
+     */
+    static void mergeEntries(ManifestFile manifestFile,
             List<ManifestFileMeta> manifestFiles,
             Map<Identifier, ManifestEntry> map) {
 
-        // 读取所有的 manifest 文件， 加载所有有效的 data entry 信息
+        // 异步读取所有的 manifest 文件， 加载所有有效的 data entry 信息
         List<Supplier<List<ManifestEntry>>> manifestReadFutures = readManifestEntries(manifestFile, manifestFiles);
 
+        // 读取所有的文件元信息并执行合并操作， 目的是去除 delete 文件
+        // 注意的是,如果 文件只有 delete 标记，没找到 add 标记， 则保留 delete 标记文件， 因为他的 add 在之前的 manifest 里
         for (Supplier<List<ManifestEntry>> taskResult : manifestReadFutures) {
             mergeEntries(taskResult.get(), map);
         }
@@ -130,20 +137,19 @@ public interface FileEntry {
 
     static <T extends FileEntry> void mergeEntries(Iterable<T> entries, Map<Identifier, T> map) {
         for (T entry : entries) {
-            // 获取当前 enry 所属的  identifier (partition-bucket-level-filename)
+            // 获取当前 enry 所属的 identifier (partition-bucket-level-filename), 唯一标识改数据文件
             Identifier identifier = entry.identifier();
             switch (entry.kind()) {
                 case ADD:
-                    Preconditions.checkState(
-                            !map.containsKey(identifier), "Trying to add file %s which is already added.", identifier);
+                    // 检查之前是否已经存在
+                    Preconditions.checkState(!map.containsKey(identifier), "Trying to add file %s which is already added.", identifier);
+
                     map.put(identifier, entry);
                     break;
                 case DELETE:
-                    // each dataFile will only be added once and deleted once,
-                    // if we know that it is added before then both add and delete entry can be
-                    // removed because there won't be further operations on this file,
-                    // otherwise we have to keep the delete entry because the add entry must be
-                    // in the previous manifest files
+                    // 每个数据文件只会添加一次和删除一次，
+                    // 如果我们知道它是在之前添加的，那么添加和删除条目都可以删除，
+                    // 因为不会对该文件进行进一步操作， 否则我们必须保留删除条目，因为添加条目必须在之前的清单文件中
                     if (map.containsKey(identifier)) {
                         map.remove(identifier);
                     } else {
@@ -151,20 +157,26 @@ public interface FileEntry {
                     }
                     break;
                 default:
-                    throw new UnsupportedOperationException(
-                            "Unknown value kind " + entry.kind().name());
+                    throw new UnsupportedOperationException("Unknown value kind " + entry.kind().name());
             }
         }
     }
 
-    static List<Supplier<List<ManifestEntry>>> readManifestEntries(
-            ManifestFile manifestFile, List<ManifestFileMeta> manifestFiles) {
+    /**
+     * 基于 manifest 元信息数据， 异步读取 manifest 文件
+     * @param manifestFile  mainfest handler
+     * @param manifestFiles  manifest 文件元信息
+     */
+    static List<Supplier<List<ManifestEntry>>> readManifestEntries(ManifestFile manifestFile, List<ManifestFileMeta> manifestFiles) {
         List<Supplier<List<ManifestEntry>>> result = new ArrayList<>();
         for (ManifestFileMeta file : manifestFiles) {
-            Future<List<ManifestEntry>> future =
-                    CompletableFuture.supplyAsync(
-                            () -> manifestFile.read(file.fileName(), file.fileSize()),
-                            FileUtils.COMMON_IO_FORK_JOIN_POOL);
+
+
+            Future<List<ManifestEntry>> future = CompletableFuture.supplyAsync(
+                    () -> manifestFile.read(file.fileName(), file.fileSize()),
+                    FileUtils.COMMON_IO_FORK_JOIN_POOL
+            );
+
             result.add(
                     () -> {
                         try {
@@ -176,6 +188,8 @@ public interface FileEntry {
         }
         return result;
     }
+
+
 
     static <T extends FileEntry> void assertNoDelete(Collection<T> entries) {
         for (T entry : entries) {

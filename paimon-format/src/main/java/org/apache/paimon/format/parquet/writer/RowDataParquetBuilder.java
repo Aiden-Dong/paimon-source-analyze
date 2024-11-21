@@ -53,11 +53,16 @@ public class RowDataParquetBuilder implements ParquetBuilder<InternalRow> {
         // 自定义 parquet write builder
         return new ParquetRowDataBuilder(out, rowType)
                 .withConf(conf)
+                // 数据区的压缩类型
                 .withCompressionCodec(CompressionCodecName.fromConf(getCompression(compression)))
+                // row group 的大小 默认 128M
                 .withRowGroupSize(conf.getLong(ParquetOutputFormat.BLOCK_SIZE, ParquetWriter.DEFAULT_BLOCK_SIZE))   // parquet.block.size
+                // page 大小， 默认1M 一个
                 .withPageSize(conf.getInt(ParquetOutputFormat.PAGE_SIZE, ParquetWriter.DEFAULT_PAGE_SIZE))          // parquet.page.size
+                // 字典编码页面大小 默认 1M一个
                 .withDictionaryPageSize(conf.getInt(ParquetOutputFormat.DICTIONARY_PAGE_SIZE, ParquetProperties.DEFAULT_DICTIONARY_PAGE_SIZE)) // parquet.dictionary.page.size
                 .withMaxPaddingSize(conf.getInt(ParquetOutputFormat.MAX_PADDING_BYTES, ParquetWriter.MAX_PADDING_SIZE_DEFAULT))  // parquet.writer.max-padding
+                // 是否开启字典编码类型
                 .withDictionaryEncoding(conf.getBoolean(ParquetOutputFormat.ENABLE_DICTIONARY, ParquetProperties.DEFAULT_IS_DICTIONARY_ENABLED))  // parquet.enable.dictionary
                 .withValidation(conf.getBoolean(ParquetOutputFormat.VALIDATION, false))  // parquet.validation
                 .withWriterVersion(                                                                  // parquet.writer.version

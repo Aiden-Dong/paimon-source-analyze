@@ -41,6 +41,7 @@ import org.apache.paimon.table.source.ReadBuilderImpl;
  **/
 public interface InnerTable extends Table {
 
+    // 主要用来获取当前要读取的文件信息
     InnerTableScan newScan();
 
     InnerStreamTableScan newStreamScan();

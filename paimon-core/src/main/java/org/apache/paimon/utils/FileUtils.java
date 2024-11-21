@@ -44,8 +44,7 @@ public class FileUtils {
 
     static {
         COMMON_IO_FORK_JOIN_POOL =
-                createForkJoinPool(
-                        "file-store-common-io", Runtime.getRuntime().availableProcessors());
+                createForkJoinPool("file-store-common-io", Runtime.getRuntime().availableProcessors());
     }
 
     private static ForkJoinPool createForkJoinPool(String namePrefix, int parallelism) {
@@ -53,8 +52,7 @@ public class FileUtils {
         // see https://stackoverflow.com/questions/34303094/
         ForkJoinPool.ForkJoinWorkerThreadFactory factory =
                 pool -> {
-                    ForkJoinWorkerThread worker =
-                            ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                    ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
                     worker.setName(namePrefix + "-" + worker.getPoolIndex());
                     return worker;
                 };

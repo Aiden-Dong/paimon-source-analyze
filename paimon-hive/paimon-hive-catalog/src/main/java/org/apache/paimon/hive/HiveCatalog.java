@@ -105,13 +105,10 @@ public class HiveCatalog extends AbstractCatalog {
 
     // we don't include paimon-hive-connector as dependencies because it depends on
     // hive-exec
-    private static final String INPUT_FORMAT_CLASS_NAME =
-            "org.apache.paimon.hive.mapred.PaimonInputFormat";
-    private static final String OUTPUT_FORMAT_CLASS_NAME =
-            "org.apache.paimon.hive.mapred.PaimonOutputFormat";
+    private static final String INPUT_FORMAT_CLASS_NAME = "org.apache.paimon.hive.mapred.PaimonInputFormat";
+    private static final String OUTPUT_FORMAT_CLASS_NAME = "org.apache.paimon.hive.mapred.PaimonOutputFormat";
     private static final String SERDE_CLASS_NAME = "org.apache.paimon.hive.PaimonSerDe";
-    private static final String STORAGE_HANDLER_CLASS_NAME =
-            "org.apache.paimon.hive.PaimonStorageHandler";
+    private static final String STORAGE_HANDLER_CLASS_NAME = "org.apache.paimon.hive.PaimonStorageHandler";
     private static final String HIVE_PREFIX = "hive.";
     public static final String HIVE_SITE_FILE = "hive-site.xml";
 
@@ -132,6 +129,7 @@ public class HiveCatalog extends AbstractCatalog {
             String clientClassName,
             Options options,
             String warehouse) {
+
         super(fileIO, options);
         this.hiveConf = hiveConf;
         this.clientClassName = clientClassName;

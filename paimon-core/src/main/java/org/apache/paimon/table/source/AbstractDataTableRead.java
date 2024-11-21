@@ -35,9 +35,9 @@ public abstract class AbstractDataTableRead<T> implements InnerTableRead {
 
     private final DefaultValueAssigner defaultValueAssigner;
 
-    private int[][] projection;
+    private int[][] projection;                   // 数据查询映射
     private boolean executeFilter = false;
-    private Predicate predicate;
+    private Predicate predicate;                  // 列过滤条件
 
     public AbstractDataTableRead(TableSchema schema) {
         this.defaultValueAssigner = schema == null ? null : DefaultValueAssigner.create(schema);

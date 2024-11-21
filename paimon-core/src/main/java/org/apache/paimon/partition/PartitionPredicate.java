@@ -166,6 +166,7 @@ public interface PartitionPredicate {
         }
     }
 
+    // 创建分区判断条件
     static Predicate createPartitionPredicate(RowType rowType, Map<String, Object> partition) {
         PredicateBuilder builder = new PredicateBuilder(rowType);
         List<String> fieldNames = rowType.getFieldNames();

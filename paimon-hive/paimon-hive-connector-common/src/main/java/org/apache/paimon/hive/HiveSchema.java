@@ -96,16 +96,14 @@ public class HiveSchema {
     /** Extract {@link HiveSchema} from Hive serde properties. */
     public static HiveSchema extract(@Nullable Configuration configuration, Properties properties) {
         String location = LocationKeyExtractor.getPaimonLocation(configuration, properties);
+        // 从 schema manager 文件中读取 schema 信息
         Optional<TableSchema> tableSchema = getExistingSchema(configuration, location);
         String columnProperty = properties.getProperty(hive_metastoreConstants.META_TABLE_COLUMNS);
 
         // Create hive external table with empty ddl
         if (StringUtils.isEmpty(columnProperty)) {
             if (!tableSchema.isPresent()) {
-                throw new IllegalArgumentException(
-                        "Schema file not found in location "
-                                + location
-                                + ". Please create table first.");
+                throw new IllegalArgumentException("Schema file not found in location " + location + ". Please create table first.");
             }
             // Paimon external table can read schema from the specified location
             return new HiveSchema(new RowType(tableSchema.get().fields()));
@@ -119,11 +117,10 @@ public class HiveSchema {
                         "column.name.delimite", String.valueOf(SerDeUtils.COMMA));
 
         List<String> columnNames = Arrays.asList(columnProperty.split(columnNameDelimiter));
-        String columnTypes =
-                properties.getProperty(hive_metastoreConstants.META_TABLE_COLUMN_TYPES);
+        String columnTypes = properties.getProperty(hive_metastoreConstants.META_TABLE_COLUMN_TYPES);
         List<TypeInfo> typeInfos = TypeInfoUtils.getTypeInfosFromTypeString(columnTypes);
-        List<DataType> dataTypes =
-                typeInfos.stream().map(HiveTypeUtils::toPaimonType).collect(Collectors.toList());
+
+        List<DataType> dataTypes = typeInfos.stream().map(HiveTypeUtils::toPaimonType).collect(Collectors.toList());
 
         // Partitions are only used for checking. They are not contained in the fields of a Hive
         // table.
@@ -168,8 +165,7 @@ public class HiveSchema {
             // Use paimon table data types and column comments when the paimon table exists.
             // Using paimon data types first because hive's TypeInfoFactory.timestampTypeInfo
             // doesn't contain precision and thus may cause casting problems
-            Map<String, DataField> paimonFields =
-                    paimonSchema.fields().stream()
+            Map<String, DataField> paimonFields = paimonSchema.fields().stream()
                             .collect(
                                     Collectors.toMap(
                                             dataField -> dataField.name().toLowerCase(),

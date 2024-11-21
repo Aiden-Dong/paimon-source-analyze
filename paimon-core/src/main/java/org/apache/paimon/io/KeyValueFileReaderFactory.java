@@ -273,8 +273,7 @@ public class KeyValueFileReaderFactory implements FileReaderFactory<KeyValue> {
                     schema,
                     projectedKeyType,
                     projectedValueType,
-                    BulkFormatMapping.newBuilder(
-                            formatDiscover, extractor, keyProjection, valueProjection, filters),
+                    BulkFormatMapping.newBuilder(formatDiscover, extractor, keyProjection, valueProjection, filters),
                     pathFactory.createDataFilePathFactory(partition, bucket),
                     options.fileReaderAsyncThreshold().getBytes(),
                     partition,

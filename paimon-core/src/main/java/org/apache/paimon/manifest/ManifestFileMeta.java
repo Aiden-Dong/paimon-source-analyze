@@ -21,6 +21,7 @@ package org.apache.paimon.manifest;
 import org.apache.paimon.data.BinaryRow;
 import org.apache.paimon.io.RollingFileWriter;
 import org.apache.paimon.manifest.FileEntry.Identifier;
+import org.apache.paimon.partition.PartitionPredicate;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.predicate.PredicateBuilder;
 import org.apache.paimon.stats.BinaryTableStats;
@@ -29,20 +30,15 @@ import org.apache.paimon.types.BigIntType;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.VarCharType;
+import org.apache.paimon.utils.Filter;
 import org.apache.paimon.utils.IOUtils;
 import org.apache.paimon.utils.RowDataToObjectArrayConverter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import javax.annotation.Nullable;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -50,8 +46,7 @@ import static org.apache.paimon.partition.PartitionPredicate.createPartitionPred
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
 /**
- * Metadata of a manifest file .
- * manifest-list entry
+ * manifest 文件元信息, 记录在 manifest-list entry 项中
  **/
 public class ManifestFileMeta {
 
@@ -148,22 +143,22 @@ public class ManifestFileMeta {
      * <p>NOTE: This method is atomic.
      */
     public static List<ManifestFileMeta> merge(
-            List<ManifestFileMeta> input,   // 历史 manifest 文件集合
-            ManifestFile manifestFile,
-            long suggestedMetaSize,
-            int suggestedMinMetaCount,
-            long manifestFullCompactionSize,
+            List<ManifestFileMeta> input,      // 历史 manifest 文件集合
+            ManifestFile manifestFile,         // manifest  handler
+            long suggestedMetaSize,            // manifest.target-file-size (8M)
+            int suggestedMinMetaCount,         // manifest.merge-min-count (30)
+            long manifestFullCompactionSize,   // manifest.full-compaction-threshold-size (16M)
             RowType partitionType) {
         // these are the newly created manifest files, clean them up if exception occurs
         List<ManifestFileMeta> newMetas = new ArrayList<>();
 
         try {
             Optional<List<ManifestFileMeta>> fullCompacted = tryFullCompaction(
-                            input,
-                            newMetas,
-                            manifestFile,
-                            suggestedMetaSize,
-                            manifestFullCompactionSize,
+                            input,                // manifest 文件集合
+                            newMetas,             // 输出文件集合
+                            manifestFile,         // manifest  handler
+                            suggestedMetaSize,          // manifest.target-file-size (8M)
+                            manifestFullCompactionSize, // manifest.full-compaction-threshold-size (16M)
                             partitionType);
 
             // manifest minor compaction, 只做小 manifest 文件合并
@@ -184,11 +179,12 @@ public class ManifestFileMeta {
     }
 
     private static List<ManifestFileMeta> tryMinorCompaction(
-            List<ManifestFileMeta> input,
-            List<ManifestFileMeta> newMetas,
-            ManifestFile manifestFile,
-            long suggestedMetaSize,
-            int suggestedMinMetaCount) {
+                            List<ManifestFileMeta> input,
+                            List<ManifestFileMeta> newMetas,
+                            ManifestFile manifestFile,
+                            long suggestedMetaSize,
+                            int suggestedMinMetaCount) {
+
         List<ManifestFileMeta> result = new ArrayList<>();
         List<ManifestFileMeta> candidates = new ArrayList<>();
         long totalSize = 0;
@@ -205,7 +201,7 @@ public class ManifestFileMeta {
             }
         }
 
-        // merge the last bit of manifests if there are too many
+        // 如果文件不大但是超过 {manifest.merge-min-count:30} 则也会触发合并
         if (candidates.size() >= suggestedMinMetaCount) {
             mergeCandidates(candidates, manifestFile, result, newMetas);
         } else {
@@ -235,26 +231,144 @@ public class ManifestFileMeta {
         }
     }
 
+    // 新版逻辑
+//    public static Optional<List<ManifestFileMeta>> tryFullCompaction(
+//            List<ManifestFileMeta> inputs,
+//            List<ManifestFileMeta> newFilesForAbort,
+//            ManifestFile manifestFile,
+//            long suggestedMetaSize,
+//            long sizeTrigger,
+//            RowType partitionType,
+//            @Nullable Integer manifestReadParallelism)
+//            throws Exception {
+//        checkArgument(sizeTrigger > 0, "Manifest full compaction size trigger cannot be zero.");
+//
+//        // TODO - 1 : 从所有的 mainfest 文件集中找到待合并的 manifest
+//
+//        Filter<ManifestFileMeta> mustChange = file -> file.numDeletedFiles() > 0 || file.fileSize() < suggestedMetaSize;
+//
+//        long totalManifestSize = 0;   // 总的 manifest 文件大小
+//        long deltaDeleteFileNum = 0;  // 总的待删除文件数量
+//        long totalDeltaFileSize = 0;  // 待合并的增量文件大小
+//
+//        for (ManifestFileMeta file : inputs) {
+//            totalManifestSize += file.fileSize();
+//            if (mustChange.test(file)) {
+//                totalDeltaFileSize += file.fileSize();
+//                deltaDeleteFileNum += file.numDeletedFiles();
+//            }
+//        }
+//        // TODO - 1.1 : 如果待合并的 manifest 文件集大小小于 {manifest.target-file-size} 则放弃合并
+//        if (totalDeltaFileSize < sizeTrigger) {
+//            return Optional.empty();
+//        }
+//
+//        // TODO - 2 : full-compaction
+//
+//        // TODO - 2.1 : 从中读取所有的待删除的文件元信息
+//        Set<FileEntry.Identifier> deleteEntries = FileEntry.readDeletedEntries(manifestFile, inputs, manifestReadParallelism);
+//
+//
+//        List<ManifestFileMeta> result = new ArrayList<>();     // compaction 后的结果集
+//
+//        List<ManifestFileMeta> toBeMerged = new LinkedList<>(inputs);
+//
+//        // 2.2. 如果是分区表，则基于分区先跳过不用合并的分区记录的
+//        if (partitionType.getFieldCount() > 0) {
+//
+//            // 拿到删除文件集所在的分区
+//            Set<BinaryRow> deletePartitions = computeDeletePartitions(deleteEntries);
+//            PartitionPredicate predicate = PartitionPredicate.fromMultiple(partitionType, deletePartitions);
+//            if (predicate != null) {
+//                Iterator<ManifestFileMeta> iterator = toBeMerged.iterator();
+//                while (iterator.hasNext()) {
+//                    ManifestFileMeta file = iterator.next();
+//
+//                    // 如果是待压缩文件， 则跳过检验
+//                    if (mustChange.test(file)) {
+//                        continue;
+//                    }
+//
+//                    // 如果是大文件 (超过{manifest.target-file-size}), 并且 mainifest 所有文件元信息集合不在
+//                    if (!predicate.test(file.numAddedFiles() + file.numDeletedFiles(),
+//                            file.partitionStats().minValues(),
+//                            file.partitionStats().maxValues(),
+//                            file.partitionStats().nullCounts())) {
+//                        iterator.remove();
+//                        result.add(file);
+//                    }
+//                }
+//            }
+//        }
+//
+//        // TODO - 2.2 : 执行合并操作， 读取所有的未决文件
+//        //              如果目标mainfest中的所有文件元信息都没有被打上 delete 标签，并且 大小超过   {manifest.target-file-size}，则不在重写压缩
+//        //              否则将文件重写
+//
+//        if (toBeMerged.size() <= 1) {
+//            return Optional.empty();
+//        }
+//
+//        // {manifest.target-file-size} 8M 一个大小
+//        RollingFileWriter<ManifestEntry, ManifestFileMeta> writer = manifestFile.createRollingWriter();
+//
+//        Exception exception = null;
+//        try {
+//            for (ManifestFileMeta file : toBeMerged) {             // 遍历所有的 manifest 文件集
+//                List<ManifestEntry> entries = new ArrayList<>();
+//                boolean requireChange = mustChange.test(file);     // 校验是否必须合并
+//
+//                for (ManifestEntry entry : manifestFile.read(file.fileName(), file.fileSize())) {  // 读取当前 Manifest 的所有的 entry
+//                    if (entry.kind() == FileKind.DELETE) continue;  // 如果是删除记录， 则直接跳过
+//
+//                    if (deleteEntries.contains(entry.identifier())) {  // 如果当前记录已经打上删除标记
+//                        requireChange = true;
+//                    } else {
+//                        entries.add(entry);
+//                    }
+//                }
+//
+//                if (requireChange) {  //  标识是小文件，或者是记录有删除标记，则重新压缩写
+//                    writer.write(entries);
+//                } else {
+//                    result.add(file);   // 否则只移动，不写入
+//                }
+//            }
+//        } catch (Exception e) {
+//            exception = e;
+//        } finally {
+//            if (exception != null) {
+//                writer.abort();
+//                throw exception;
+//            }
+//            writer.close();
+//        }
+//
+//        List<ManifestFileMeta> merged = writer.result();   // 拿到所有新生成的 manifest 文件信息
+//        result.addAll(merged);
+//        newFilesForAbort.addAll(merged);
+//        return Optional.of(result);
+//    }
+
     // 合并 manifest 文件 ，降低 Manifest-list 压力
     public static Optional<List<ManifestFileMeta>> tryFullCompaction(
-            List<ManifestFileMeta> inputs,
-            List<ManifestFileMeta> newMetas,
-            ManifestFile manifestFile,
-            long suggestedMetaSize,
-            long sizeTrigger,          //  manifest.merge-min-count
-            RowType partitionType)
-            throws Exception {
+            List<ManifestFileMeta> inputs,             // manifest 文件集合
+            List<ManifestFileMeta> newMetas,           // 输出文件集合
+            ManifestFile manifestFile,                 // manifest  handler
+            long suggestedMetaSize,                    // manifest.target-file-size (8M)
+            long sizeTrigger,                          // manifest.full-compaction-threshold-size (16M)
+            RowType partitionType) throws Exception {
 
-
-
-        // TODO - 1 : 判断是否需要合并 Manifest 文件
-        List<ManifestFileMeta> base = new ArrayList<>();  // ?
+        List<ManifestFileMeta> base = new ArrayList<>();
         int totalManifestSize = 0;
         int i = 0;
+
+        // TODO - 1 : 从初始位置开始遍历 manifest 文件，过滤掉之前合并好的 mainfest 文件
+        //            文件大小超过 {manifest.target-file-size}, 并且没有 delete 文件
         for (; i < inputs.size(); i++) {
             ManifestFileMeta file = inputs.get(i);
 
-            // 如果当前 manifest-list 文件过大， 则 添加到
+            // 如果当前 manifest 文件过大，并且没有 delete
             if (file.numDeletedFiles == 0 && file.fileSize >= suggestedMetaSize) {
                 base.add(file);
                 totalManifestSize += file.fileSize;
@@ -263,10 +377,10 @@ public class ManifestFileMeta {
             }
         }
 
-        // 汇算
+        // TODO - 2 : 从第一个文件过小(不足 {manifest.target-file-size} )，或者存在 delete 记录处开始记录增量文件
         List<ManifestFileMeta> delta = new ArrayList<>();
-        long deltaDeleteFileNum = 0;
-        long totalDeltaFileSize = 0;
+        long deltaDeleteFileNum = 0;        // 记录删除的文件数量
+        long totalDeltaFileSize = 0;        // 记录总的新增文件记录大小
         for (; i < inputs.size(); i++) {
             ManifestFileMeta file = inputs.get(i);
             delta.add(file);
@@ -275,41 +389,43 @@ public class ManifestFileMeta {
             totalDeltaFileSize += file.fileSize();
         }
 
-
-        // 查看总的 manifest 文件大小
+        //  TODO - 3 : 如果所有增量的 manifest 文件大小不足 {manifest.target-file-size}, 则不触发 full-compaction
         if (totalDeltaFileSize < sizeTrigger) {
             return Optional.empty();
         }
 
-        // TODO -2 : 执行 Compation 操作
-        LOG.info("Start Manifest File Full Compaction, pick the number of delete file: {}, total manifest file size: {}", deltaDeleteFileNum, totalManifestSize);
-
-        //  2.1 尝试通过分区过滤器跳过base文件
-
-        Map<Identifier, ManifestEntry> deltaMerged = new LinkedHashMap<>();
+        //  TODO - 5 : 读取拿到所有的增量部分新增文件
+        //              如果存在删除记录，并且删除来自 base 集， 则预先保留此部分
+        // 读取增量部分的有效的 数据文件元信息 (Manifest-entry)
+        // 旨在合并 delete 文件记录， 如果delete 来自之前合并过的 base, 则咱是保留
+        Map<Identifier, ManifestEntry> deltaMerged = new LinkedHashMap<>();   // 增量文件集合
         FileEntry.mergeEntries(manifestFile, delta, deltaMerged);
-        List<ManifestFileMeta> result = new ArrayList<>();
+
+        List<ManifestFileMeta> result = new ArrayList<>();                     // 最终合并完成的 manifest 文件集
 
         int j = 0;
 
+        // 如果此表是分区表， 则基于遗留的 delete 记录， 找出部分未涉及到的分区，
+        // 将部分未涉及到 delete 的 base 集合 manifest 放入 result 中
         if (partitionType.getFieldCount() > 0) {
+            // 分区处理,
+            // 基于分区判断，从delete entry 中找到delete  涉及到的分区
+            // 将分区范围不在系列的 manifest 文件先添加到  result 中
 
-            // 计算删除的分区
-            Set<BinaryRow> deletePartitions = computeDeletePartitions(deltaMerged);
+            Set<BinaryRow> deletePartitions = computeDeletePartitions(deltaMerged);   // 记录出现 delete 文件的分区
+            // 分区判断
             Optional<Predicate> predicateOpt = convertPartitionToPredicate(partitionType, deletePartitions);
-
             if (predicateOpt.isPresent()) {
                 Predicate predicate = predicateOpt.get();
                 for (; j < base.size(); j++) {
                     // TODO: optimize this to binary search.
                     ManifestFileMeta file = base.get(j);
-                    if (predicate.test(
-                            file.numAddedFiles + file.numDeletedFiles,
+                    if (predicate.test(file.numAddedFiles + file.numDeletedFiles,
                             file.partitionStats.minValues(),
                             file.partitionStats.maxValues(),
                             file.partitionStats.nullCounts())) {
                         break;
-                    } else {
+                    } else {  // 基于分区判断
                         result.add(file);
                     }
                 }
@@ -320,23 +436,25 @@ public class ManifestFileMeta {
             }
         }
 
-        // 2.2. 尝试通过读取条目跳过base文件
-
+        // 拿到所有的 delete Entry 记录
         Set<Identifier> deleteEntries = new HashSet<>();
         deltaMerged.forEach(
                 (k, v) -> {
                     if (v.kind() == FileKind.DELETE) {
                         deleteEntries.add(k);
                     }
-                });
+                }
+        );
 
         List<ManifestEntry> mergedEntries = new ArrayList<>();
-        for (; j < base.size(); j++) {
+
+        for (; j < base.size(); j++) {   // 遍历所有未决的 base manifest
+
             ManifestFileMeta file = base.get(j);
             boolean contains = false;
-            for (ManifestEntry entry : manifestFile.read(file.fileName, file.fileSize)) {
+            for (ManifestEntry entry : manifestFile.read(file.fileName, file.fileSize)) {  // 读取当前 manifest 的所有 entry
                 checkArgument(entry.kind() == FileKind.ADD);
-                if (deleteEntries.contains(entry.identifier())) {
+                if (deleteEntries.contains(entry.identifier())) {  //
                     contains = true;
                 } else {
                     mergedEntries.add(entry);
@@ -346,7 +464,7 @@ public class ManifestFileMeta {
                 // already read this file into fullMerged
                 j++;
                 break;
-            } else {
+            } else {   // 如果不包含， 该文件直接放入到结果集中不需要压缩
                 mergedEntries.clear();
                 result.add(file);
             }
@@ -396,8 +514,7 @@ public class ManifestFileMeta {
         return Optional.of(result);
     }
 
-    private static Set<BinaryRow> computeDeletePartitions(
-            Map<Identifier, ManifestEntry> deltaMerged) {
+    private static Set<BinaryRow> computeDeletePartitions(Map<Identifier, ManifestEntry> deltaMerged) {
         Set<BinaryRow> partitions = new HashSet<>();
         for (ManifestEntry manifestEntry : deltaMerged.values()) {
             if (manifestEntry.kind() == FileKind.DELETE) {
@@ -408,8 +525,7 @@ public class ManifestFileMeta {
         return partitions;
     }
 
-    private static Optional<Predicate> convertPartitionToPredicate(
-            RowType partitionType, Set<BinaryRow> partitions) {
+    private static Optional<Predicate> convertPartitionToPredicate(RowType partitionType, Set<BinaryRow> partitions) {
 
         Optional<Predicate> predicateOpt;
 

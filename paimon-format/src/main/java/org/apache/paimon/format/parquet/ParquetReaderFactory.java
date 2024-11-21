@@ -381,17 +381,14 @@ public class ParquetReaderFactory implements FormatReaderFactory {
 
         private final ColumnarRowIterator result;
 
-        protected ParquetReaderBatch(
-                Path filePath,
+        protected ParquetReaderBatch(Path filePath,
                 WritableColumnVector[] writableVectors,
                 VectorizedColumnBatch columnarBatch,
                 Pool.Recycler<ParquetReaderBatch> recycler) {
             this.writableVectors = writableVectors;
             this.columnarBatch = columnarBatch;
             this.recycler = recycler;
-            this.result =
-                    new ColumnarRowIterator(
-                            filePath, new ColumnarRow(columnarBatch), this::recycle);
+            this.result = new ColumnarRowIterator(filePath, new ColumnarRow(columnarBatch), this::recycle);
         }
 
         public void recycle() {

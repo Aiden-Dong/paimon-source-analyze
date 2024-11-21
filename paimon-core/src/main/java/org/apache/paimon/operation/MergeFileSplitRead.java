@@ -197,10 +197,10 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
         List<Predicate> allFilters = new ArrayList<>();
         List<Predicate> pkFilters = null;
         List<String> primaryKeys = tableSchema.trimmedPrimaryKeys();
-        Set<String> nonPrimaryKeys =
-                tableSchema.fieldNames().stream()
+        Set<String> nonPrimaryKeys = tableSchema.fieldNames().stream()
                         .filter(name -> !primaryKeys.contains(name))
                         .collect(Collectors.toSet());
+
         for (Predicate sub : splitAnd(predicate)) {
             allFilters.add(sub);
             if (!containsFields(sub, nonPrimaryKeys)) {
@@ -212,16 +212,15 @@ public class MergeFileSplitRead implements SplitRead<KeyValue> {
                 pkFilters.add(sub);
             }
         }
-        // Consider this case:
-        // Denote (seqNumber, key, value) as a record. We have two overlapping runs in a section:
-        //   * First run: (1, k1, 100), (2, k2, 200)
-        //   * Second run: (3, k1, 10), (4, k2, 20)
-        // If we push down filter "value >= 100" for this section, only the first run will be read,
-        // and the second run is lost. This will produce incorrect results.
-        //
-        // So for sections with overlapping runs, we only push down key filters.
-        // For sections with only one run, as each key only appears once, it is OK to push down
-        // value filters.
+        // 考虑以下情况：
+        // 将 (seqNumber, key, value) 表示为一条记录。在一个分区中，我们有两个重叠的运行：
+        //   * 第一个运行： (1, k1, 100), (2, k2, 200)
+        //   * 第二个运行： (3, k1, 10), (4, k2, 20)
+        // 如果我们为该分区下推过滤器 "value >= 100"，则只会读取第一个运行，
+        // 而第二个运行将丢失。这将产生不正确的结果。
+
+        // 因此，对于具有重叠运行的分区，我们仅下推键过滤器。
+        // 对于只有一个运行的分区，由于每个键只出现一次，因此可以下推值过滤器。
         filtersForAll = allFilters;
         filtersForKeys = pkFilters;
         return this;

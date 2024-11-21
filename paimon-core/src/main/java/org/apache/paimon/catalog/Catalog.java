@@ -31,13 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * This interface is responsible for reading and writing metadata such as database/table from a
- * paimon catalog.
- *
+/***
+ * 这个接口负责从 Paimon 目录读取和写入元数据，例如数据库/表。
  * @see CatalogFactory
  * @since 0.4.0
- */
+ **/
+
 @Public
 public interface Catalog extends AutoCloseable {
 

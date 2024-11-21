@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An abstraction layer above {@link SplitRead} to provide reading of {@link InternalRow}.
+ * 抽象层，在 {@link SplitRead} 之上提供 {@link InternalRow} 的读取。
  *
  * @since 0.4.0
  */

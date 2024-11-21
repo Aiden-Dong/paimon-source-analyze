@@ -51,8 +51,8 @@ public class ParquetFileFormat extends FileFormat {
     }
 
     @Override
-    public FormatReaderFactory createReaderFactory(
-            RowType projectedRowType, List<Predicate> filters) {
+    public FormatReaderFactory createReaderFactory(RowType projectedRowType, List<Predicate> filters) {
+
         return new ParquetReaderFactory(
                 getParquetConfiguration(formatContext.formatOptions()),
                 projectedRowType,

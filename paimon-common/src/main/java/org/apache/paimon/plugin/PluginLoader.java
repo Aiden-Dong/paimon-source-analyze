@@ -19,10 +19,7 @@
 package org.apache.paimon.plugin;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.ServiceLoader;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,9 +57,11 @@ public class PluginLoader {
         }
 
         ClassLoader ownerClassLoader = PluginLoader.class.getClassLoader();
+        URL resource = ownerClassLoader.getResource(dirName);
+
         this.submoduleClassLoader =
                 new ComponentClassLoader(
-                        new URL[] {ownerClassLoader.getResource(dirName)},
+                        new URL[] {resource},
                         ownerClassLoader,
                         OWNER_CLASSPATH,
                         COMPONENT_CLASSPATH);
@@ -70,7 +69,9 @@ public class PluginLoader {
 
     public <T> T discover(Class<T> clazz) {
         List<T> results = new ArrayList<>();
-        ServiceLoader.load(clazz, submoduleClassLoader).iterator().forEachRemaining(results::add);
+        ServiceLoader<T> load = ServiceLoader.load(clazz, submoduleClassLoader);
+        Iterator<T> iterator = load.iterator();
+        iterator.forEachRemaining(results::add);
         if (results.size() != 1) {
             throw new RuntimeException(
                     "Found "

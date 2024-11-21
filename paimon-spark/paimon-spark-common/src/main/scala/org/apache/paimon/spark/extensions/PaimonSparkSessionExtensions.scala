@@ -43,7 +43,7 @@ class PaimonSparkSessionExtensions extends (SparkSessionExtensions => Unit) {
     extensions.injectPostHocResolutionRule(spark => PaimonPostHocResolutionRules(spark))
     extensions.injectPostHocResolutionRule(spark => PaimonIncompatiblePHRRules(spark))
 
-    extensions.injectPostHocResolutionRule(_ => PaimonUpdateTable)             //
+    extensions.injectPostHocResolutionRule(_ => PaimonUpdateTable)             //  修改表结构命令
     extensions.injectPostHocResolutionRule(_ => PaimonDeleteTable)
     extensions.injectPostHocResolutionRule(spark => PaimonMergeInto(spark))
 

@@ -39,6 +39,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * {@link AbstractSerDe} for paimon. It transforms map-reduce values to Hive objects.
@@ -58,10 +59,19 @@ public class PaimonSerDe extends AbstractSerDe {
     @Override
     public void initialize(@Nullable Configuration configuration, Properties properties)
             throws SerDeException {
+
+        Set<Map.Entry<Object, Object>> entries = properties.entrySet();
+
+        for (Map.Entry<Object, Object> entry : entries) {
+            String key = (String)entry.getKey();
+            String value = (String)entry.getValue();
+            System.out.println(String.format("{%s} -> {%s}", key, value));
+        }
+
+
         String dataFieldStr = properties.getProperty(PaimonStorageHandler.PAIMON_TABLE_FIELDS);
         if (dataFieldStr != null) {
-            List<DataField> dataFields =
-                    JsonSerdeUtil.fromJson(dataFieldStr, new TypeReference<List<DataField>>() {});
+            List<DataField> dataFields = JsonSerdeUtil.fromJson(dataFieldStr, new TypeReference<List<DataField>>() {});
             this.tableSchema = new HiveSchema(new RowType(dataFields));
         } else {
             this.tableSchema = HiveSchema.extract(configuration, properties);

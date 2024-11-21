@@ -27,29 +27,30 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * An interface for building the {@link BatchTableWrite} and {@link BatchTableCommit}.
+ * 用于构建 {@link BatchTableWrite} 和 {@link BatchTableCommit} 的接口。
+ * <p>分布式批处理写入示例：
+ * <pre>
+ *   {@code
+ *      // 1. 创建一个 WriteBuilder（可序列化）
  *
- * <p>Example of distributed batch writing:
+ *      Table table = catalog.getTable(...);
+ *      WriteBuilder builder = table.newWriteBuilder();
  *
- * <pre>{@code
- * // 1. Create a WriteBuilder (Serializable)
- * Table table = catalog.getTable(...);
- * WriteBuilder builder = table.newWriteBuilder();
+ *      // 2. 在分布式任务中写入记录
+ *      BatchTableWrite write = builder.newWrite();
+ *      write.write(...);
+ *      write.write(...);
+ *      write.write(...);
+ *      List<CommitMessage> messages = write.prepareCommit();
  *
- * // 2. Write records in distributed tasks
- * BatchTableWrite write = builder.newWrite();
- * write.write(...);
- * write.write(...);
- * write.write(...);
- * List<CommitMessage> messages = write.prepareCommit();
+ *      // 3. 收集所有 CommitMessage 到全局节点并提交
  *
- * // 3. Collect all CommitMessages to a global node and commit
- * BatchTableCommit commit = builder.newCommit();
- * commit.commit(allCommitMessages());
- * }</pre>
- *
+ *      BatchTableCommit commit = builder.newCommit();
+ *      commit.commit(allCommitMessages());
+ *    }
+ *  </pre>
  * @since 0.4.0
- */
+ * */
 @Public
 public interface BatchWriteBuilder extends WriteBuilder {
 

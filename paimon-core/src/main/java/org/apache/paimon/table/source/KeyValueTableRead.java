@@ -42,15 +42,15 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * An abstraction layer above {@link MergeFileSplitRead} to provide reading of {@link InternalRow}.
+ * 抽象层，在 {@link MergeFileSplitRead} 之上提供 {@link InternalRow} 的读取。
  */
 public final class KeyValueTableRead extends AbstractDataTableRead<KeyValue> {
 
-    private final List<SplitReadProvider> readProviders;
+    private final List<SplitReadProvider> readProviders;   // 读取工具类
 
-    private int[][] projection = null;
+    private int[][] projection = null;              // 查询映射关系
     private boolean forceKeepDelete = false;
-    private Predicate predicate = null;
+    private Predicate predicate = null;             // 过滤条件
     private IOManager ioManager = null;
 
     public KeyValueTableRead(
@@ -58,12 +58,14 @@ public final class KeyValueTableRead extends AbstractDataTableRead<KeyValue> {
             Supplier<RawFileSplitRead> batchRawReadSupplier,
             TableSchema schema) {
         super(schema);
-        this.readProviders =
-                Arrays.asList(
+
+        this.readProviders = Arrays.asList(
                         new RawFileSplitReadProvider(batchRawReadSupplier, this::assignValues),
                         new MergeFileSplitReadProvider(mergeReadSupplier, this::assignValues),
                         new IncrementalChangelogReadProvider(mergeReadSupplier, this::assignValues),
-                        new IncrementalDiffReadProvider(mergeReadSupplier, this::assignValues));
+                        new IncrementalDiffReadProvider(mergeReadSupplier, this::assignValues)
+        );
+
     }
 
     private List<SplitRead<InternalRow>> initialized() {

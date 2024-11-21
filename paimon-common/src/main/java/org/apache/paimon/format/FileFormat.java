@@ -34,9 +34,8 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 
 /**
- * Factory class which creates reader and writer factories for specific file format.
- *
- * <p>NOTE: This class must be thread safe.
+ * 工厂类，用于创建特定文件格式的读取器和写入器工厂。
+ * <p>注意：此类必须是线程安全的。
  */
 public abstract class FileFormat {
 
@@ -51,18 +50,17 @@ public abstract class FileFormat {
     }
 
     /**
-     * Create a {@link FormatReaderFactory} from the type, with projection pushed down.
-     *
-     * @param projectedRowType Type with projection.
-     * @param filters A list of filters in conjunctive form for filtering on a best-effort basis.
-     */
-    public abstract FormatReaderFactory createReaderFactory(
-            RowType projectedRowType, @Nullable List<Predicate> filters);
+     * 从类型创建 {@link FormatReaderFactory}，并下推投影。
 
-    /** Create a {@link FormatWriterFactory} from the type. */
+     * @param projectedRowType 带有投影的类型
+     * @param filters 用于谓词下推的过滤结果
+     */
+    public abstract FormatReaderFactory createReaderFactory(RowType projectedRowType, @Nullable List<Predicate> filters);
+
+    /** 从类型创建 {@link FormatWriterFactory}。 */
     public abstract FormatWriterFactory createWriterFactory(RowType type);
 
-    /** Validate data field type supported or not. */
+    // 验证数据字段类型是否支持。
     public abstract void validateDataFields(RowType rowType);
 
     public FormatReaderFactory createReaderFactory(RowType rowType) {
@@ -79,7 +77,7 @@ public abstract class FileFormat {
         return fromIdentifier(identifier, new FormatContext(options, 1024));
     }
 
-    /** Create a {@link FileFormat} from format identifier and format options. */
+    /** 从格式标识符和格式选项创建 {@link FileFormat}。 */
     public static FileFormat fromIdentifier(String identifier, FormatContext context) {
         return fromIdentifier(identifier, context, FileFormat.class.getClassLoader())
                 .orElseThrow(
@@ -92,8 +90,7 @@ public abstract class FileFormat {
 
     private static Optional<FileFormat> fromIdentifier(
             String formatIdentifier, FormatContext context, ClassLoader classLoader) {
-        ServiceLoader<FileFormatFactory> serviceLoader =
-                ServiceLoader.load(FileFormatFactory.class, classLoader);
+        ServiceLoader<FileFormatFactory> serviceLoader = ServiceLoader.load(FileFormatFactory.class, classLoader);
         for (FileFormatFactory factory : serviceLoader) {
             if (factory.identifier().equals(formatIdentifier.toLowerCase())) {
                 return Optional.of(factory.create(context));
@@ -103,6 +100,7 @@ public abstract class FileFormat {
         return Optional.empty();
     }
 
+    // 从文件后缀中判断文件格式
     public static FileFormat getFileFormat(Options options, String formatIdentifier) {
         int readBatchSize = options.get(CoreOptions.READ_BATCH_SIZE);
         return FileFormat.fromIdentifier(
