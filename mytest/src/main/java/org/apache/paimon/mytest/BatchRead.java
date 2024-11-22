@@ -46,11 +46,12 @@ public class BatchRead {
   // 4. Read a split in task
   long startTime = System.currentTimeMillis();
 
-  InnerTableRead read = (InnerTableRead)readBuilder.newRead();
+
 
   Random random = new Random();
 
   for(int i = 0 ; i < 20 ; i ++){
+   InnerTableRead read = (InnerTableRead)readBuilder.newRead();
    int value = random.nextInt(5000) * 3;
    int key = (value * value) % 4000000;
    Predicate keyFilter = builder.equal(0, key);

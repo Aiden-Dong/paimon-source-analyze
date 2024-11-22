@@ -13,20 +13,17 @@ import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
-import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
-import org.apache.parquet.io.ColumnIOFactory;
+import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.io.InputFile;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.RecordReader;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Random;
 
@@ -35,8 +32,8 @@ import java.util.Random;
  *  .....                                                                                         *
  * </pre>                                                                                         *
  *                                                                                                *
- * @auth : lan                                                                                *
- * @date : 2024/11/20                                                                                *
+ * @auth : lan                                                                                    *
+ * @date : 2024/11/20                                                                             *
  * ============================================================================================== */
 public class MyParquetReader {
 
@@ -55,19 +52,18 @@ public class MyParquetReader {
     Random random = new Random();
     int key = random.nextInt(1947611);
 
-//    FilterPredicate filter = FilterApi.eq(FilterApi.intColumn("_KEY_f0"), key);
+    FilterPredicate filter = FilterApi.eq(FilterApi.intColumn("id"), 100000);
 
     ParquetReadOptions options = ParquetReadOptions.builder()
             .useStatsFilter(true)
             .useRecordFilter(true)
             .useColumnIndexFilter(true)
-//            .withRecordFilter(FilterCompat.get(filter))
+            .withRecordFilter(FilterCompat.get(filter))
             .build();
 
     InputFile fin = HadoopInputFile.fromPath(path, configuration);
 
     long startTime = System.currentTimeMillis();
-
 
     try(ParquetFileReader reader = new ParquetFileReader(fin, options)){
       FileMetaData fileMetaData = reader.getFileMetaData();
@@ -77,38 +73,58 @@ public class MyParquetReader {
       List<BlockMetaData> rowGroups = reader.getRowGroups();
       System.out.println("Number of Row Groups: " + rowGroups.size());
 
-//      for (BlockMetaData rowGroup : rowGroups) {
-////        System.out.println("===========================");
-////        List<ColumnChunkMetaData> columns = rowGroup.getColumns();
-////        for (ColumnChunkMetaData column : columns) {
-////          System.out.println(column.getStatistics());
-////        }
-////      }
+      for (BlockMetaData rowGroup : rowGroups) {
+        System.out.println("============Row-Group===============");
+        List<ColumnChunkMetaData> columns = rowGroup.getColumns();
+        for (ColumnChunkMetaData column : columns) {
+          System.out.println(column.getStatistics());
+
+          ColumnIndex columnIndex = reader.readColumnIndex(column);
+
+          if (columnIndex != null) {
+            System.out.println("ColumnIndex found for column: " + columnIndex);
+
+            List<ByteBuffer> minValues = columnIndex.getMinValues();
+            List<ByteBuffer> maxValues = columnIndex.getMaxValues();
+
+            // 遍历每个页的统计信息
+            for (int i = 0; i < minValues.size(); i++) {
+              System.out.println("Page " + i + ":");
+              System.out.println("Min: " + minValues.get(i));
+              System.out.println("Max: " + maxValues.get(i));
+            }
+          } else {
+            System.out.println("No ColumnIndex for column: " + columnIndex);
+          }
+
+        }
+        System.out.println("------------------------------------");
+      }
 
 
       PageReadStore rowGroup;
       int rowGroupIndex = 0;
 
-      while ((rowGroup = reader.readNextRowGroup()) != null){
-        long rowCount = rowGroup.getRowCount();
-
-        ColumnDescriptor keyColumn = schema.getColumns().get(0);
-
-        System.out.println(keyColumn);
-
-        PageReader pageReader = rowGroup.getPageReader(keyColumn);
-        DataPage page;
-
-        while((page = pageReader.readPage()) != null){
-            if (page instanceof DataPageV1){
-              Statistics<?> statistics = ((DataPageV1) page).getStatistics();
-              System.out.println("V1 : " + statistics.genericGetMax());
-            }else if(page instanceof DataPageV2){
-              Statistics<?> statistics = ((DataPageV2) page).getStatistics();
-              System.out.println("V2 : " + statistics);
-            }
-        }
-        break;
+//      while ((rowGroup = reader.readNextRowGroup()) != null){
+//        long rowCount = rowGroup.getRowCount();
+//
+//        ColumnDescriptor keyColumn = schema.getColumns().get(0);
+//
+//        System.out.println(keyColumn);
+//
+//        PageReader pageReader = rowGroup.getPageReader(keyColumn);
+//        DataPage page;
+//
+//        while((page = pageReader.readPage()) != null){
+//            if (page instanceof DataPageV1){
+//              Statistics<?> statistics = ((DataPageV1) page).getStatistics();
+//              System.out.println("V1 : " + statistics.genericGetMax());
+//            }else if(page instanceof DataPageV2){
+//              Statistics<?> statistics = ((DataPageV2) page).getStatistics();
+//              System.out.println("V2 : " + statistics);
+//            }
+//        }
+//        break;
 
 
 
@@ -135,7 +151,7 @@ public class MyParquetReader {
 //        System.out.println("Reading Row Group #" + rowGroupIndex);
 //        System.out.println("Row Group Row Count: " + rowCount);
 //        rowGroupIndex++;
-      }
+//      }
     }
     long stopTime = System.currentTimeMillis();
 
