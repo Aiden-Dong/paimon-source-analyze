@@ -1,5 +1,6 @@
 package org.apache.paimon.mytest;
 
+import org.apache.paimon.data.BinaryArray;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.GenericRow;
 import org.apache.paimon.table.Table;
@@ -27,19 +28,23 @@ public class BatchWrite {
     BatchWriteBuilder writeBuilder = table.newBatchWriteBuilder();
     // BatchWriteBuilderImpl
 
+    String[] items = new String[]{"h1", "h2", "h3"};
+
     // 2. 在分布式任务中写入记录
     BatchTableWrite write = writeBuilder.newWrite();  // TableWriteImpl
-
-    Random random = new Random();
 
     long startTime = System.currentTimeMillis();
 
     for(int i = 0; i < 4000000; i++){
 
       GenericRow genericRow = GenericRow.of(
-              i,
-              BinaryString.fromString(String.valueOf(random.nextInt())),
-              BinaryString.fromString(UUID.randomUUID().toString())
+              (long)i,
+              BinaryString.fromString(items[i%3]),
+              BinaryString.fromString(UUID.randomUUID().toString()),
+              (float)i,
+              (double)i,
+              (i % 2) == 0,
+              BinaryArray.fromLongArray(new Long[]{(long)i, (long)i+1,(long) i+2})
       );
 
       write.write(genericRow);

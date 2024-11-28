@@ -4,6 +4,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.paimon.format.parquet.ParquetInputFile;
+import org.apache.paimon.format.parquet.reader.LongColumnReader;
 import org.apache.parquet.ParquetReadOptions;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.page.*;
@@ -13,19 +15,23 @@ import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterApi;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.filter2.predicate.Operators;
 import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
+import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.io.RecordReader;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**************************************************************************************************
  * <pre>                                                                                          *
@@ -38,123 +44,76 @@ import java.util.Random;
 public class MyParquetReader {
 
   public static void main(String[] args) throws IOException {
-    // 确定 Parquet 文件的路径
-    //String parquetFilePath = "file:///Users/lan/tmp/paimon-catalog/my_db.db/parquet/data-88800912-ec20-4661-af6c-f25857e9f7ec-0.parquet";
-    String parquetFilePath = "output/demo.parquet";
+    Path path = new Path("file:///Users/lan/tmp/paimon-catalog/my_db.db/my_table/bucket-0/data-d75a719a-c662-4e1f-b0aa-b516c5ca3aef-0.parquet");
 
-    // 创建 Hadoop 配置和文件系统对象
     Configuration configuration = new Configuration();
-    FileSystem fs = FileSystem.get(configuration);
 
-    // 读取 Parquet 文件的元数据
-    Path path = new Path(parquetFilePath);
+//    FilterPredicate f0 = FilterApi.eq(FilterApi.longColumn("_1"), (long)512);
 
-    Random random = new Random();
-    int key = random.nextInt(1947611);
-
-    FilterPredicate filter = FilterApi.eq(FilterApi.intColumn("id"), 100000);
+//    ParquetInputFormat.setFilterPredicate(configuration, f0);
 
     ParquetReadOptions options = ParquetReadOptions.builder()
-            .useStatsFilter(true)
-            .useRecordFilter(true)
-            .useColumnIndexFilter(true)
-            .withRecordFilter(FilterCompat.get(filter))
+//            .withRecordFilter(FilterCompat.get(f0))
             .build();
-
-    InputFile fin = HadoopInputFile.fromPath(path, configuration);
 
     long startTime = System.currentTimeMillis();
 
-    try(ParquetFileReader reader = new ParquetFileReader(fin, options)){
-      FileMetaData fileMetaData = reader.getFileMetaData();
-      MessageType schema = fileMetaData.getSchema();
-      System.out.println(schema.toString());
 
-      List<BlockMetaData> rowGroups = reader.getRowGroups();
-      System.out.println("Number of Row Groups: " + rowGroups.size());
+    ParquetFileReader parquetFileReader = new ParquetFileReader(
+            HadoopInputFile.fromPath(path, configuration),
+            options);
 
-      for (BlockMetaData rowGroup : rowGroups) {
-        System.out.println("============Row-Group===============");
-        List<ColumnChunkMetaData> columns = rowGroup.getColumns();
-        for (ColumnChunkMetaData column : columns) {
-          System.out.println(column.getStatistics());
+    MessageType schema = parquetFileReader.getFooter().getFileMetaData().getSchema();
 
-          ColumnIndex columnIndex = reader.readColumnIndex(column);
+    System.out.println(schema);
 
-          if (columnIndex != null) {
-            System.out.println("ColumnIndex found for column: " + columnIndex);
+    List<ColumnDescriptor> columns = schema.getColumns();
 
-            List<ByteBuffer> minValues = columnIndex.getMinValues();
-            List<ByteBuffer> maxValues = columnIndex.getMaxValues();
+    List<BlockMetaData> blocks = parquetFileReader.getFooter().getBlocks();
 
-            // 遍历每个页的统计信息
-            for (int i = 0; i < minValues.size(); i++) {
-              System.out.println("Page " + i + ":");
-              System.out.println("Min: " + minValues.get(i));
-              System.out.println("Max: " + maxValues.get(i));
-            }
-          } else {
-            System.out.println("No ColumnIndex for column: " + columnIndex);
-          }
+    PageReadStore rowGroup;
+    MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
+    while ((rowGroup = parquetFileReader.readNextFilteredRowGroup()) != null){
+      System.out.println("=======================Row-GROUP=======================");
+      long rowCount = rowGroup.getRowCount();
+//      PrimitiveIterator.OfLong rowIndexes = rowGroup.getRowIndexes().get();
+//      while (rowIndexes.hasNext())
+//        System.out.println(rowIndexes.next());
+      System.out.println("row-count : " + rowCount);
+//
+      for (ColumnDescriptor column : columns) {
+        System.out.println("----------column : "+ column.toString() + "------------");
+        PageReader pageReader = rowGroup.getPageReader(column);
+        DataPage dataPage;
+        long pageCount = 0;
+
+        while ((dataPage = pageReader.readPage()) != null){
+          pageCount = pageCount + 1;
+
+
+          System.out.println("page - " + pageCount + " : " + dataPage);
+          System.out.println("page - " + pageCount + " : " + dataPage.getFirstRowIndex());
 
         }
-        System.out.println("------------------------------------");
+        System.out.println("----------------------------------------------");
       }
 
-
-      PageReadStore rowGroup;
-      int rowGroupIndex = 0;
-
-//      while ((rowGroup = reader.readNextRowGroup()) != null){
-//        long rowCount = rowGroup.getRowCount();
+//      RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
 //
-//        ColumnDescriptor keyColumn = schema.getColumns().get(0);
-//
-//        System.out.println(keyColumn);
-//
-//        PageReader pageReader = rowGroup.getPageReader(keyColumn);
-//        DataPage page;
-//
-//        while((page = pageReader.readPage()) != null){
-//            if (page instanceof DataPageV1){
-//              Statistics<?> statistics = ((DataPageV1) page).getStatistics();
-//              System.out.println("V1 : " + statistics.genericGetMax());
-//            }else if(page instanceof DataPageV2){
-//              Statistics<?> statistics = ((DataPageV2) page).getStatistics();
-//              System.out.println("V2 : " + statistics);
-//            }
-//        }
-//        break;
-
-
-
-//        for (ColumnDescriptor column : schema.get()) {
-//          PageReader pageReader = rowGroup.getPageReader(column);
-//          DataPage page;
-//          while((page = pageReader.readPage()) != null){
-//            if ()
-//          }
-//        }
-
-        // 构建 Column IO
-//        MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-//
-//        // 创建 Record Reader
-//        RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
-//
-//        // 遍历记录
-//        for (int i = 0; i < rowCount; i++) {
-//          Group group = recordReader.read();
-//          System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
-//        }
-
-//        System.out.println("Reading Row Group #" + rowGroupIndex);
-//        System.out.println("Row Group Row Count: " + rowCount);
-//        rowGroupIndex++;
+//      // 遍历记录
+//      for (int i = 0; i < rowCount; i++) {
+//        Group group = recordReader.read();
+//        System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
 //      }
+
+      System.out.println("==================================================");
     }
+
     long stopTime = System.currentTimeMillis();
 
     System.out.println("time : " + (stopTime - startTime));
+
   }
+
+
 }

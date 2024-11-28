@@ -19,14 +19,18 @@ import java.io.IOException;
 public class TableUtil {
   public static void createTable() throws IOException {
     Schema.Builder schemaBuilder = Schema.newBuilder();
-    schemaBuilder.column("f0", DataTypes.INT());
+    schemaBuilder.column("f0", DataTypes.BIGINT());
     schemaBuilder.column("f1", DataTypes.STRING());
     schemaBuilder.column("f2", DataTypes.STRING());
+    schemaBuilder.column("f4", DataTypes.FLOAT());
+    schemaBuilder.column("f5", DataTypes.DOUBLE());
+    schemaBuilder.column("f6", DataTypes.BOOLEAN());
+    schemaBuilder.column("f7", DataTypes.ARRAY(DataTypes.BIGINT()));
+
+
     schemaBuilder.primaryKey("f0");
     schemaBuilder.option("bucket", "1");
-    schemaBuilder.option("manifest.compression", "null");
-    schemaBuilder.option("parquet.block.size", "10485760");
-    schemaBuilder.option("file.format", "orc");
+    schemaBuilder.option("file.format", "parquet");
     Schema schema = schemaBuilder.build();
 
     String dbName = "my_db";

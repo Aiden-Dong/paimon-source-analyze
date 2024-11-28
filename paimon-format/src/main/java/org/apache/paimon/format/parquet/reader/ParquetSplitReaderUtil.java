@@ -72,63 +72,64 @@ public class ParquetSplitReaderUtil {
         switch (fieldType.getTypeRoot()) {
             case BOOLEAN:
                 return new BooleanColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case TINYINT:
                 return new ByteColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case DOUBLE:
                 return new DoubleColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case FLOAT:
                 return new FloatColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case INTEGER:
             case DATE:
             case TIME_WITHOUT_TIME_ZONE:
                 return new IntColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case BIGINT:
                 return new LongColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case SMALLINT:
                 return new ShortColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case CHAR:
             case VARCHAR:
             case BINARY:
             case VARBINARY:
                 return new BytesColumnReader(
-                        descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        descriptors.get(0), pages);
             case TIMESTAMP_WITHOUT_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 if (descriptors.get(0).getPrimitiveType().getPrimitiveTypeName()
                         == PrimitiveType.PrimitiveTypeName.INT64) {
                     return new LongColumnReader(
-                            descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                            descriptors.get(0), pages);
                 }
                 return new TimestampColumnReader(
-                        true, descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                        true, descriptors.get(0), pages);
             case DECIMAL:
                 switch (descriptors.get(0).getPrimitiveType().getPrimitiveTypeName()) {
                     case INT32:
                         return new IntColumnReader(
-                                descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                                descriptors.get(0), pages);
                     case INT64:
                         return new LongColumnReader(
-                                descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                                descriptors.get(0), pages);
                     case BINARY:
                         return new BytesColumnReader(
-                                descriptors.get(0), pages.getPageReader(descriptors.get(0)));
+                                descriptors.get(0), pages);
                     case FIXED_LEN_BYTE_ARRAY:
                         return new FixedLenBytesColumnReader(
                                 descriptors.get(0),
-                                pages.getPageReader(descriptors.get(0)),
+                                pages,
                                 ((DecimalType) fieldType).getPrecision());
                 }
+                //
             case ARRAY:
                 return new ArrayColumnReader(
                         descriptors.get(0),
-                        pages.getPageReader(descriptors.get(0)),
+                        pages,
                         true,
                         descriptors.get(0).getPrimitiveType(),
                         fieldType);
@@ -137,14 +138,14 @@ public class ParquetSplitReaderUtil {
                 ArrayColumnReader mapKeyReader =
                         new ArrayColumnReader(
                                 descriptors.get(0),
-                                pages.getPageReader(descriptors.get(0)),
+                                pages,
                                 true,
                                 descriptors.get(0).getPrimitiveType(),
                                 new ArrayType(mapType.getKeyType()));
                 ArrayColumnReader mapValueReader =
                         new ArrayColumnReader(
                                 descriptors.get(1),
-                                pages.getPageReader(descriptors.get(1)),
+                                pages,
                                 true,
                                 descriptors.get(1).getPrimitiveType(),
                                 new ArrayType(mapType.getValueType()));
@@ -154,14 +155,14 @@ public class ParquetSplitReaderUtil {
                 ArrayColumnReader multisetKeyReader =
                         new ArrayColumnReader(
                                 descriptors.get(0),
-                                pages.getPageReader(descriptors.get(0)),
+                                pages,
                                 true,
                                 descriptors.get(0).getPrimitiveType(),
                                 new ArrayType(multisetType.getElementType()));
                 ArrayColumnReader multisetValueReader =
                         new ArrayColumnReader(
                                 descriptors.get(1),
-                                pages.getPageReader(descriptors.get(1)),
+                                pages,
                                 true,
                                 descriptors.get(1).getPrimitiveType(),
                                 new ArrayType(new IntType(false)));

@@ -22,6 +22,7 @@ import org.apache.paimon.data.columnar.writable.WritableDoubleVector;
 import org.apache.paimon.data.columnar.writable.WritableIntVector;
 
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -31,9 +32,9 @@ import java.nio.ByteBuffer;
 /** Double {@link ColumnReader}. */
 public class DoubleColumnReader extends AbstractColumnReader<WritableDoubleVector> {
 
-    public DoubleColumnReader(ColumnDescriptor descriptor, PageReader pageReader)
+    public DoubleColumnReader(ColumnDescriptor descriptor, PageReadStore pageReadStore)
             throws IOException {
-        super(descriptor, pageReader);
+        super(descriptor, pageReadStore);
         checkTypeName(PrimitiveType.PrimitiveTypeName.DOUBLE);
     }
 
@@ -71,6 +72,34 @@ public class DoubleColumnReader extends AbstractColumnReader<WritableDoubleVecto
     }
 
     @Override
+    protected void skipBatch(int num) {
+        int left = num;
+        while (left > 0) {
+            if (runLenDecoder.currentCount == 0) {
+                runLenDecoder.readNextGroup();
+            }
+            int n = Math.min(left, runLenDecoder.currentCount);
+            switch (runLenDecoder.mode) {
+                case RLE:
+                    if (runLenDecoder.currentValue == maxDefLevel) {
+                        skipDouble(n);
+                    }
+                    break;
+                case PACKED:
+                    for (int i = 0; i < n; ++i) {
+                        if (runLenDecoder.currentBuffer[runLenDecoder.currentBufferIdx++]
+                                == maxDefLevel) {
+                            skipDouble(1);
+                        }
+                    }
+                    break;
+            }
+            left -= n;
+            runLenDecoder.currentCount -= n;
+        }
+    }
+
+    @Override
     protected void readBatchFromDictionaryIds(
             int rowId, int num, WritableDoubleVector column, WritableIntVector dictionaryIds) {
         for (int i = rowId; i < rowId + num; ++i) {
@@ -80,9 +109,14 @@ public class DoubleColumnReader extends AbstractColumnReader<WritableDoubleVecto
         }
     }
 
+
+    private void skipDouble(int num){
+        skipDataBuffer(8 * num);
+    }
     private double readDouble() {
         return readDataBuffer(8).getDouble();
     }
+
 
     private void readDoubles(int total, WritableDoubleVector c, int rowId) {
         int requiredBytes = total * 8;
