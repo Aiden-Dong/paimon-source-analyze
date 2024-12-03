@@ -44,16 +44,16 @@ import java.util.*;
 public class MyParquetReader {
 
   public static void main(String[] args) throws IOException {
-    Path path = new Path("file:///Users/lan/tmp/paimon-catalog/my_db.db/my_table/bucket-0/data-d75a719a-c662-4e1f-b0aa-b516c5ca3aef-0.parquet");
+    Path path = new Path("file:///Users/lan/tmp/paimon-catalog/my_db.db/my_table/bucket-0/data-a486283f-101e-406b-8f12-c4cc23f9fed6-0.parquet");
 
     Configuration configuration = new Configuration();
 
-//    FilterPredicate f0 = FilterApi.eq(FilterApi.longColumn("_1"), (long)512);
-
+    FilterPredicate f0 = FilterApi.eq(FilterApi.longColumn("f0"), (long)380000);
+//
 //    ParquetInputFormat.setFilterPredicate(configuration, f0);
 
     ParquetReadOptions options = ParquetReadOptions.builder()
-//            .withRecordFilter(FilterCompat.get(f0))
+            .withRecordFilter(FilterCompat.get(f0))
             .build();
 
     long startTime = System.currentTimeMillis();
@@ -76,35 +76,54 @@ public class MyParquetReader {
     while ((rowGroup = parquetFileReader.readNextFilteredRowGroup()) != null){
       System.out.println("=======================Row-GROUP=======================");
       long rowCount = rowGroup.getRowCount();
-//      PrimitiveIterator.OfLong rowIndexes = rowGroup.getRowIndexes().get();
-//      while (rowIndexes.hasNext())
-//        System.out.println(rowIndexes.next());
       System.out.println("row-count : " + rowCount);
-//
-      for (ColumnDescriptor column : columns) {
-        System.out.println("----------column : "+ column.toString() + "------------");
-        PageReader pageReader = rowGroup.getPageReader(column);
-        DataPage dataPage;
-        long pageCount = 0;
+      System.out.println("Row-group index : " + rowGroup.getRowIndexOffset());
+      Optional<PrimitiveIterator.OfLong> rowIndexes1 = rowGroup.getRowIndexes();
 
-        while ((dataPage = pageReader.readPage()) != null){
-          pageCount = pageCount + 1;
-
-
-          System.out.println("page - " + pageCount + " : " + dataPage);
-          System.out.println("page - " + pageCount + " : " + dataPage.getFirstRowIndex());
-
+      if (rowIndexes1.isPresent()){
+        while (rowIndexes1.get().hasNext()){
+          System.out.print(rowIndexes1.get().next() + " ");
         }
-        System.out.println("----------------------------------------------");
       }
 
-//      RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
+      System.out.println("indexs : " + rowIndexes1);
+      DataPage dataPage;
+      long pageCount = 0;
+      PageReader pageReader = rowGroup.getPageReader(columns.get(0));
+//      while ((dataPage = pageReader.readPage()) != null){
+//          pageCount = pageCount + 1;
+//
+//
+//          System.out.println("page - " + pageCount + " : " + dataPage);
+//          System.out.println("page - " + pageCount + " : " + dataPage.getFirstRowIndex());
+//
+//        }
+
+//
+//      for (ColumnDescriptor column : columns) {
+//        System.out.println("----------column : "+ column.toString() + "------------");
+//        PageReader pageReader = rowGroup.getPageReader(column);
+//        DataPage dataPage;
+//        long pageCount = 0;
+//
+//        while ((dataPage = pageReader.readPage()) != null){
+//          pageCount = pageCount + 1;
+//
+//
+//          System.out.println("page - " + pageCount + " : " + dataPage);
+//          System.out.println("page - " + pageCount + " : " + dataPage.getFirstRowIndex());
+//
+//        }
+//        System.out.println("----------------------------------------------");
+//      }
+
+      RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
 //
 //      // 遍历记录
-//      for (int i = 0; i < rowCount; i++) {
-//        Group group = recordReader.read();
-//        System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
-//      }
+      for (int i = 0; i < rowCount; i++) {
+        Group group = recordReader.read();
+        System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
+      }
 
       System.out.println("==================================================");
     }

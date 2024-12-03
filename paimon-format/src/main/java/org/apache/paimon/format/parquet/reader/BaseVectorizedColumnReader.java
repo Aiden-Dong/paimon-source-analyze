@@ -26,7 +26,11 @@ import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.page.*;
+import org.apache.parquet.column.page.DataPage;
+import org.apache.parquet.column.page.DataPageV1;
+import org.apache.parquet.column.page.DataPageV2;
+import org.apache.parquet.column.page.DictionaryPage;
+import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
@@ -42,7 +46,8 @@ import static org.apache.parquet.column.ValuesType.REPETITION_LEVEL;
 import static org.apache.parquet.column.ValuesType.VALUES;
 
 /**
- * 这是一种列级 Parquet 阅读器，用于读取一批列的记录。部分代码参考自 Apache Hive 和 Apache Parquet。
+ * It's column level Parquet reader which is used to read a batch of records for a column, part of
+ * the code is referred from Apache Hive and Apache Parquet.
  */
 public abstract class BaseVectorizedColumnReader implements ColumnReader<WritableColumnVector> {
 
@@ -50,6 +55,14 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
 
     protected boolean isUtcTimestamp;
 
+    /** Total number of values read. */
+    protected long valuesRead;
+
+    /**
+     * value that indicates the end of the current page. That is, if valuesRead ==
+     * endOfPageValueCount, we are at the end of the page.
+     */
+    protected long endOfPageValueCount;
 
     /** The dictionary, if this column has dictionary encoding. */
     protected final ParquetDataColumnReader dictionary;
@@ -72,12 +85,6 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
     /** Total values in the current page. */
     protected int pageValueCount;
 
-    /**
-     * Helper struct to track intermediate states while reading Parquet pages in the column chunk.
-     * 用于在读取列块中的 Parquet 页面时跟踪中间状态的辅助结构体。
-     */
-    protected final ParquetReadState readState;
-
     protected final PageReader pageReader;
     protected final ColumnDescriptor descriptor;
     protected final Type type;
@@ -85,21 +92,19 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
 
     public BaseVectorizedColumnReader(
             ColumnDescriptor descriptor,
-            PageReadStore pageReadStore,
+            PageReader pageReader,
             boolean isUtcTimestamp,
             Type parquetType,
             DataType dataType)
             throws IOException {
         this.descriptor = descriptor;
         this.type = parquetType;
-        this.pageReader = pageReadStore.getPageReader(descriptor);
+        this.pageReader = pageReader;
         this.maxDefLevel = descriptor.getMaxDefinitionLevel();
         this.isUtcTimestamp = isUtcTimestamp;
         this.dataType = dataType;
 
-        this.readState = new ParquetReadState(pageReadStore.getRowIndexes().orElse(null));
-
-        DictionaryPage dictionaryPage = pageReader.readDictionaryPage();  // 初始化字典编码
+        DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         if (dictionaryPage != null) {
             try {
                 this.dictionary =
@@ -123,42 +128,36 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
     protected void readRepetitionAndDefinitionLevels() {
         repetitionLevel = repetitionLevelColumn.nextInt();
         definitionLevel = definitionLevelColumn.nextInt();
+        valuesRead++;
     }
 
-    protected int readPage() {
+    protected void readPage() {
         DataPage page = pageReader.readPage();
 
         if (page == null) {
-            return -1;
+            return;
         }
 
-        long pageFirstRowIndex = page.getFirstRowIndex().orElse(0L);
-
-        if (pageFirstRowIndex == -1){
-            System.out.println("=====");
-        }
-
-        int pageValueCount =  page.accept(
-                new DataPage.Visitor<Integer>() {
+        page.accept(
+                new DataPage.Visitor<Void>() {
                     @Override
-                    public Integer visit(DataPageV1 dataPageV1) {
-                        return readPageV1(dataPageV1);
+                    public Void visit(DataPageV1 dataPageV1) {
+                        readPageV1(dataPageV1);
+                        return null;
                     }
+
                     @Override
-                    public Integer visit(DataPageV2 dataPageV2) {
-                        return readPageV2(dataPageV2);
+                    public Void visit(DataPageV2 dataPageV2) {
+                        readPageV2(dataPageV2);
+                        return null;
                     }
                 });
-
-        readState.resetForNewPage(pageValueCount, pageFirstRowIndex);
-
-        return pageValueCount;
     }
 
-    private void initDataReader(Encoding dataEncoding, ByteBufferInputStream in)
+    private void initDataReader(Encoding dataEncoding, ByteBufferInputStream in, int valueCount)
             throws IOException {
-
-//        this.endOfPageValueCount = valuesRead + pageValueCount;
+        this.pageValueCount = valueCount;
+        this.endOfPageValueCount = valuesRead + pageValueCount;
         if (dataEncoding.usesDictionary()) {
             this.dataColumn = null;
             if (dictionary == null) {
@@ -190,8 +189,7 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
         }
     }
 
-    private int readPageV1(DataPageV1 page) {
-        int pageValueCount = page.getValueCount();
+    private void readPageV1(DataPageV1 page) {
         ValuesReader rlReader = page.getRlEncoding().getValuesReader(descriptor, REPETITION_LEVEL);
         ValuesReader dlReader = page.getDlEncoding().getValuesReader(descriptor, DEFINITION_LEVEL);
         this.repetitionLevelColumn = new ValuesReaderIntIterator(rlReader);
@@ -205,16 +203,15 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
             LOG.debug("Reading definition levels at {}.", in.position());
             dlReader.initFromPage(pageValueCount, in);
             LOG.debug("Reading data at {}.", in.position());
-            initDataReader(page.getValueEncoding(), in);
-            return pageValueCount;
+            initDataReader(page.getValueEncoding(), in, page.getValueCount());
         } catch (IOException e) {
             throw new ParquetDecodingException(
                     String.format("Could not read page %s in col %s.", page, descriptor), e);
         }
     }
 
-    private int readPageV2(DataPageV2 page) {
-        int pageValueCount = page.getValueCount();
+    private void readPageV2(DataPageV2 page) {
+        this.pageValueCount = page.getValueCount();
         this.repetitionLevelColumn =
                 newRLEIterator(descriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         this.definitionLevelColumn =
@@ -224,8 +221,8 @@ public abstract class BaseVectorizedColumnReader implements ColumnReader<Writabl
                     "Page data size {} bytes and {} records.",
                     page.getData().size(),
                     pageValueCount);
-            initDataReader(page.getDataEncoding(), page.getData().toInputStream());
-            return pageValueCount;
+            initDataReader(
+                    page.getDataEncoding(), page.getData().toInputStream(), page.getValueCount());
         } catch (IOException e) {
             throw new ParquetDecodingException(
                     String.format("Could not read page %s in col %s.", page, descriptor), e);

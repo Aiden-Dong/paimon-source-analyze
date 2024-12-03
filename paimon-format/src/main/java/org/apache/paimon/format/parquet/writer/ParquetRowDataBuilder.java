@@ -48,7 +48,6 @@ public class ParquetRowDataBuilder
         return this;
     }
 
-    // 自定义 WriteSupport
     @Override
     protected WriteSupport<InternalRow> getWriteSupport(Configuration conf) {
         return new ParquetWriteSupport();
@@ -56,7 +55,6 @@ public class ParquetRowDataBuilder
 
     private class ParquetWriteSupport extends WriteSupport<InternalRow> {
 
-        // 将 Paimon 类型转化为  Parquet 类型
         private final MessageType schema = convertToParquetMessageType("paimon_schema", rowType);
 
         private ParquetRowDataWriter writer;

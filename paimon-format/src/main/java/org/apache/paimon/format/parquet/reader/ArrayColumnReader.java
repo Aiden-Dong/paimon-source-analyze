@@ -37,7 +37,6 @@ import org.apache.paimon.types.LocalZonedTimestampType;
 import org.apache.paimon.types.TimestampType;
 
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
@@ -62,12 +61,12 @@ public class ArrayColumnReader extends BaseVectorizedColumnReader {
 
     public ArrayColumnReader(
             ColumnDescriptor descriptor,
-            PageReadStore pageReadStore,
+            PageReader pageReader,
             boolean isUtcTimestamp,
             Type type,
             DataType dataType)
             throws IOException {
-        super(descriptor, pageReadStore, isUtcTimestamp, type, dataType);
+        super(descriptor, pageReader, isUtcTimestamp, type, dataType);
     }
 
     @Override
@@ -106,185 +105,36 @@ public class ArrayColumnReader extends BaseVectorizedColumnReader {
      * @return boolean
      */
     private boolean fetchNextValue(DataType type) {
-        boolean ready = false;
-
-        while (!ready) {
-
-            if (readState.isFinish()){
-                eof = true;
-                break;
-            }
-
-            readPageIfNeed();  //  如果需要将读取一个新的 page, 返回可读数据量
-
-            if (readState.valuesToReadInPage <= 0){  // 没有数据
-                eof = true;
-                break;
-            }
-
-            long pageRowId = readState.rowId;
-            long rangeStart = readState.currentRangeStart();
-            long rangeEnd = readState.currentRangeEnd();
-
-            int leftInPage = readState.valuesToReadInPage;  // 当前Page的可读数据量
-
-            if (pageRowId < rangeStart) {  // 有无效数据
-                long toSkip = (rangeStart - pageRowId);
-
-                if (toSkip >= leftInPage) {  // 所有数据都抛弃
-                    pageRowId += leftInPage;
-                    leftInPage = 0;
+        int left = readPageIfNeed();
+        if (left > 0) {
+            // get the values of repetition and definitionLevel
+            readRepetitionAndDefinitionLevels();
+            // read the data if it isn't null
+            if (definitionLevel == maxDefLevel) {
+                if (isCurrentPageDictionaryEncoded) {
+                    lastValue = dataColumn.readValueDictionaryId();
                 } else {
-                    skipDatas(toSkip, type);
-                    pageRowId += toSkip;
-                    leftInPage -= toSkip;
+                    lastValue = readPrimitiveTypedRow(type);
                 }
-            }else if (pageRowId > rangeEnd){
-                readState.nextRange();
-            }else{
-                // get the values of repetition and definitionLevel
-                readRepetitionAndDefinitionLevels();
-                // read the data if it isn't null
-                if (definitionLevel == maxDefLevel) {
-                    if (isCurrentPageDictionaryEncoded) {
-                        lastValue = dataColumn.readValueDictionaryId();
-                    } else {
-                        lastValue = readPrimitiveTypedRow(type);
-                    }
-                } else {
-                    lastValue = null;
-                }
-                pageRowId += 1;
-                leftInPage -= 1;
-                ready = true;
+            } else {
+                lastValue = null;
             }
-
-            if (pageRowId == -1){
-                System.out.println("=========");
-            }
-            readState.valuesToReadInPage = leftInPage;
-            readState.rowId = pageRowId;
+            return true;
+        } else {
+            eof = true;
+            return false;
         }
-
-        return ready;
     }
 
-
-    private boolean fetchNextValueNEW(DataType type) {
-        boolean ready = false;
-
-        while (!ready) {
-
-            if (readState.isFinish()){
-                eof = true;
-                break;
-            }
-
-            readPageIfNeed();  //  如果需要将读取一个新的 page, 返回可读数据量
-
-            if (readState.valuesToReadInPage <= 0){  // 没有数据
-                eof = true;
-                break;
-            }
-
-            long pageRowId = readState.rowId;
-            long rangeStart = readState.currentRangeStart();
-            long rangeEnd = readState.currentRangeEnd();
-
-            int leftInPage = readState.valuesToReadInPage;  // 当前Page的可读数据量
-
-            if (pageRowId < rangeStart) {  // 有无效数据
-                long toSkip = (rangeStart - pageRowId);
-
-                if (toSkip >= leftInPage) {  // 所有数据都抛弃
-                    pageRowId += leftInPage;
-                    leftInPage = 0;
-                } else {
-                    skipDatas(toSkip, type);
-                    pageRowId += toSkip;
-                    leftInPage -= toSkip;
-                }
-            }else if (pageRowId > rangeEnd){
-                readState.nextRange();
-            }else{
-                // get the values of repetition and definitionLevel
-                readRepetitionAndDefinitionLevels();
-                // read the data if it isn't null
-                if (definitionLevel == maxDefLevel) {
-                    if (isCurrentPageDictionaryEncoded) {
-                        lastValue = dataColumn.readValueDictionaryId();
-                    } else {
-                        lastValue = readPrimitiveTypedRow(type);
-                    }
-                } else {
-                    lastValue = null;
-                }
-                pageRowId += 1;
-                leftInPage -= 1;
-                ready = true;
-            }
-
-            if (pageRowId == -1){
-                System.out.println("=========");
-            }
-            readState.valuesToReadInPage = leftInPage;
-            readState.rowId = pageRowId;
+    private int readPageIfNeed() {
+        // Compute the number of values we want to read in this page.
+        int leftInPage = (int) (endOfPageValueCount - valuesRead);
+        if (leftInPage == 0) {
+            // no data left in current page, load data from new page
+            readPage();
+            leftInPage = (int) (endOfPageValueCount - valuesRead);
         }
-
-        return ready;
-    }
-
-
-
-
-    private void skipDatas(long num, DataType type){
-
-        int index = 0;
-        int repetitionLevelSkip;
-        int definitionLevelSkip;
-
-        while (index < num) {
-
-            do {
-                repetitionLevelSkip = repetitionLevelColumn.nextInt();
-
-                definitionLevelSkip = definitionLevelColumn.nextInt();
-
-                // read the data if it isn't null
-                if (repetitionLevelSkip == maxDefLevel) {
-                    if (isCurrentPageDictionaryEncoded) {
-                        dataColumn.readValueDictionaryId();
-                    } else {
-                         readPrimitiveTypedRow(type);
-                    }
-                }
-
-            } while ((repetitionLevelSkip != 0));
-            index++;
-        }
-
-    }
-
-    private void readPageIfNeed() {
-//        // Compute the number of values we want to read in this page.
-//        int leftInPage = (int) (endOfPageValueCount - valuesRead);
-//        if (leftInPage == 0) {
-//            // no data left in current page, load data from new page
-//            readPage();
-//            leftInPage = (int) (endOfPageValueCount - valuesRead);
-//        }
-//        return leftInPage;
-
-        if (readState.valuesToReadInPage == 0) {
-            int pageValueCount = readPage();
-            // 返回当前 page 的数据量
-            if (pageValueCount < 0) {
-                // we've read all the pages; this could happen when we're reading a repeated list and we
-                // don't know where the list will end until we've seen all the pages.
-                return;
-            }
-        }
-
+        return leftInPage;
     }
 
     // Need to be in consistent with that VectorizedPrimitiveColumnReader#readBatchHelper
@@ -392,13 +242,11 @@ public class ArrayColumnReader extends BaseVectorizedColumnReader {
     /**
      * Collects data from a parquet page and returns the final row index where it stopped. The
      * returned index can be equal to or less than total.
-     * 从 Parquet 页中收集数据，并返回停止收集数据的最终行索引。
-     * 返回的索引值可以等于或小于总行数。
      *
-     * @param total  要收集的最大行数
-     * @param lcv  用于在数据收集期间进行初始设置的列向量
-     * @param valueList 将稍后馈送到向量中的值集合
-     * @param type 数组的元素类型
+     * @param total maximum number of rows to collect
+     * @param lcv column vector to do initial setup in data collection time
+     * @param valueList collection of values that will be fed into the vector later
+     * @param type the element type of array
      * @return int
      */
     private int collectDataFromParquetPage(
@@ -406,22 +254,17 @@ public class ArrayColumnReader extends BaseVectorizedColumnReader {
         int index = 0;
         /*
          * Here is a nested loop for collecting all values from a parquet page.
-         * 这是一个用于从 Parquet 页中收集所有值的嵌套循环。
          * A column of array type can be considered as a list of lists, so the two loops are as below:
-         * 一列数组类型可以被视为一个列表的列表，因此有两个循环如下:
          * 1. The outer loop iterates on rows (index is a row index, so points to a row in the batch), e.g.:
-         * 1. 外层循环迭代行（索引是行索引，因此指向批处理中的一行），例如：
          * [0, 2, 3]    <- index: 0
          * [NULL, 3, 4] <- index: 1
          *
-         * 2. 内层循环迭代一行内的值（为 ListColumnVector 中的一个元素设置来自 Parquet 数据页的所有数据），
-         * 因此 fetchNextValue 函数一次返回一个值：
+         * 2. The inner loop iterates on values within a row (sets all data from parquet data page
+         * for an element in ListColumnVector), so fetchNextValue returns values one-by-one:
          * 0, 2, 3, NULL, 3, 4
          *
          * As described below, the repetition level (repetitionLevel != 0)
          * can be used to decide when we'll start to read values for the next list.
-         *
-         * 如下所述，重复级别（repetitionLevel != 0） 可以用来决定何时开始读取下一个列表的值。
          */
         while (!eof && index < total) {
             // add element to ListColumnVector one by one
@@ -431,7 +274,6 @@ public class ArrayColumnReader extends BaseVectorizedColumnReader {
              * Repetition level = 0 means that a new list started there in the parquet page,
              * in that case, let's exit from the loop, and start to collect value for a new list.
              */
-
             do {
                 /*
                  * Definition level = 0 when a NULL value was returned instead of a list

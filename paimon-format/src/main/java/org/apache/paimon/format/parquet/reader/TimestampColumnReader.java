@@ -24,7 +24,6 @@ import org.apache.paimon.data.columnar.writable.WritableTimestampVector;
 
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
@@ -49,9 +48,9 @@ public class TimestampColumnReader extends AbstractColumnReader<WritableTimestam
     private final boolean utcTimestamp;
 
     public TimestampColumnReader(
-            boolean utcTimestamp, ColumnDescriptor descriptor, PageReadStore pageReadStore)
+            boolean utcTimestamp, ColumnDescriptor descriptor, PageReader pageReader)
             throws IOException {
-        super(descriptor, pageReadStore);
+        super(descriptor, pageReader);
         this.utcTimestamp = utcTimestamp;
         checkTypeName(PrimitiveType.PrimitiveTypeName.INT96);
     }
@@ -71,15 +70,6 @@ public class TimestampColumnReader extends AbstractColumnReader<WritableTimestam
                         int96ToTimestamp(utcTimestamp, buffer.getLong(), buffer.getInt()));
             } else {
                 column.setNullAt(rowId + i);
-            }
-        }
-    }
-
-    @Override
-    protected void skipBatch(int num) {
-        for (int i = 0; i < num; i++) {
-            if (runLenDecoder.readInteger() == maxDefLevel) {
-                skipDataBuffer(12);
             }
         }
     }

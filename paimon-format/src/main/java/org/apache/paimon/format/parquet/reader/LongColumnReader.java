@@ -22,7 +22,6 @@ import org.apache.paimon.data.columnar.writable.WritableIntVector;
 import org.apache.paimon.data.columnar.writable.WritableLongVector;
 
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -32,12 +31,11 @@ import java.nio.ByteBuffer;
 /** Long {@link ColumnReader}. */
 public class LongColumnReader extends AbstractColumnReader<WritableLongVector> {
 
-    public LongColumnReader(ColumnDescriptor descriptor, PageReadStore pageReadStore) throws IOException {
-        super(descriptor, pageReadStore);
+    public LongColumnReader(ColumnDescriptor descriptor, PageReader pageReader) throws IOException {
+        super(descriptor, pageReader);
         checkTypeName(PrimitiveType.PrimitiveTypeName.INT64);
     }
 
-    // 非字典编码
     @Override
     protected void readBatch(int rowId, int num, WritableLongVector column) {
         int left = num;
@@ -72,35 +70,6 @@ public class LongColumnReader extends AbstractColumnReader<WritableLongVector> {
     }
 
     @Override
-    protected void skipBatch(int num) {
-        int left = num;
-        while (left > 0) {
-            if (runLenDecoder.currentCount == 0) {
-                runLenDecoder.readNextGroup();
-            }
-            int n = Math.min(left, runLenDecoder.currentCount);
-            switch (runLenDecoder.mode) {
-                case RLE:
-                    if (runLenDecoder.currentValue == maxDefLevel) {
-                        skipValue(n);
-                    }
-                    break;
-                case PACKED:
-                    for (int i = 0; i < n; ++i) {
-                        if (runLenDecoder.currentBuffer[runLenDecoder.currentBufferIdx++]
-                                == maxDefLevel) {
-                            skipValue(1);
-                        }
-                    }
-                    break;
-            }
-            left -= n;
-            runLenDecoder.currentCount -= n;
-        }
-    }
-
-    // 字典编码
-    @Override
     protected void readBatchFromDictionaryIds(
             int rowId, int num, WritableLongVector column, WritableIntVector dictionaryIds) {
         for (int i = rowId; i < rowId + num; ++i) {
@@ -108,10 +77,6 @@ public class LongColumnReader extends AbstractColumnReader<WritableLongVector> {
                 column.setLong(i, dictionary.decodeToLong(dictionaryIds.getInt(i)));
             }
         }
-    }
-
-    private void skipValue(int num){
-        skipDataBuffer(num * 8);
     }
 
     private long readLong() {

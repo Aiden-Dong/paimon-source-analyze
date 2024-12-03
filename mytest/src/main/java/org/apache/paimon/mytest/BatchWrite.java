@@ -35,7 +35,7 @@ public class BatchWrite {
 
     long startTime = System.currentTimeMillis();
 
-    for(int i = 0; i < 4000000; i++){
+    for(int i = 0; i < 400000; i++){
 
       GenericRow genericRow = GenericRow.of(
               (long)i,

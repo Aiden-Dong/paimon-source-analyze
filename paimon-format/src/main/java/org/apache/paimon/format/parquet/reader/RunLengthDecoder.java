@@ -40,14 +40,14 @@ import java.nio.ByteBuffer;
 final class RunLengthDecoder {
 
     /**
-     * 如果为 true，则位宽是固定的。
-     * 此解码器在不同位置使用，这也控制了我们是否需要从数据流的开头读取位宽。
+     * If true, the bit width is fixed. This decoder is used in different places and this also
+     * controls if we need to read the bitwidth from the beginning of the data stream.
      */
     private final boolean fixedWidth;
 
     private final boolean readLength;
 
-    // 解码数据流
+    // Encoded data.
     private ByteBufferInputStream in;
 
     // bit/byte width of decoded data and utility to batch unpack them.
@@ -57,10 +57,9 @@ final class RunLengthDecoder {
 
     // Current decoding mode and values
     MODE mode;
-    int currentCount;  // 当前数据量
-    int currentValue;  // 基于 RLE 的编码
+    int currentCount;
+    int currentValue;
 
-    // 基于 package 编码情况
     // Buffer of decoded values if the values are PACKED.
     int[] currentBuffer = new int[16];
     int currentBufferIdx = 0;
@@ -190,54 +189,6 @@ final class RunLengthDecoder {
                     break;
             }
             rowId += n;
-            left -= n;
-            currentCount -= n;
-        }
-    }
-
-    void skipDictionaryIds(
-            int total,
-            int level,
-            RunLengthDecoder data) {
-        int left = total;
-        while (left > 0) {
-            if (this.currentCount == 0) {
-                this.readNextGroup();
-            }
-            int n = Math.min(left, this.currentCount);
-            switch (mode) {
-                case RLE:
-                    if (currentValue == level) {
-                        data.skipDictionaryIdData(n);
-                    }
-                    break;
-                case PACKED:
-                    for (int i = 0; i < n; ++i) {
-                        if (currentBuffer[currentBufferIdx++] == level) {
-                             data.readInteger();
-                        }
-                    }
-                    break;
-            }
-            left -= n;
-            currentCount -= n;
-        }
-    }
-
-    private void skipDictionaryIdData(int total) {
-        int left = total;
-        while (left > 0) {
-            if (this.currentCount == 0) {
-                this.readNextGroup();
-            }
-            int n = Math.min(left, this.currentCount);
-            switch (mode) {
-                case RLE:
-                    break;
-                case PACKED:
-                    currentBufferIdx += n;
-                    break;
-            }
             left -= n;
             currentCount -= n;
         }

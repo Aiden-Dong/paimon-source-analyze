@@ -39,7 +39,6 @@ import org.apache.paimon.utils.Pool;
 import org.apache.parquet.ParquetReadOptions;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.page.PageReadStore;
-import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.schema.GroupType;
@@ -62,7 +61,8 @@ import static org.apache.paimon.format.parquet.reader.ParquetSplitReaderUtil.cre
 import static org.apache.parquet.hadoop.UnmaterializableRecordCounter.BAD_RECORD_THRESHOLD_CONF_KEY;
 
 /**
- * Parquet {@link FormatReaderFactory}，用于以矢量化模式从文件读取数据到 {@link VectorizedColumnBatch}。
+ * Parquet {@link FormatReaderFactory} that reads data from the file to {@link
+ * VectorizedColumnBatch} in vectorized mode.
  */
 public class ParquetReaderFactory implements FormatReaderFactory {
 
@@ -78,40 +78,33 @@ public class ParquetReaderFactory implements FormatReaderFactory {
     private final int batchSize;
     private final Set<Integer> unknownFieldsIndices = new HashSet<>();
 
-    private final FilterCompat.Filter filter;
-
-    public ParquetReaderFactory(Options conf, RowType projectedType, int batchSize, FilterCompat.Filter filter) {
+    public ParquetReaderFactory(Options conf, RowType projectedType, int batchSize) {
         this.conf = conf;
         this.projectedFields = projectedType.getFieldNames().toArray(new String[0]);
         this.projectedTypes = projectedType.getFieldTypes().toArray(new DataType[0]);
         this.batchSize = batchSize;
-        this.filter = filter;
     }
 
     @Override
     public ParquetReader createReader(FormatReaderFactory.Context context) throws IOException {
-        // Paruqet Reader 配置初始化
         ParquetReadOptions.Builder builder =
                 ParquetReadOptions.builder().withRange(0, context.fileSize());
-
         setReadOptions(builder);
 
-        // 构建 parquet reader
-        ParquetFileReader reader = new ParquetFileReader(
+        ParquetFileReader reader =
+                new ParquetFileReader(
                         ParquetInputFile.fromPath(context.fileIO(), context.filePath()),
                         builder.build());
-
-
-        MessageType fileSchema = reader.getFileMetaData().getSchema();   // 获取文件元信息
-        MessageType requestedSchema = clipParquetSchema(fileSchema);     // 只从文件中获取到查询的列
-        reader.setRequestedSchema(requestedSchema);  // 将查询列应用到 parquet reader 中
+        MessageType fileSchema = reader.getFileMetaData().getSchema();
+        MessageType requestedSchema = clipParquetSchema(fileSchema);
+        reader.setRequestedSchema(requestedSchema);
 
         checkSchema(fileSchema, requestedSchema);
 
         Pool<ParquetReaderBatch> poolOfBatches =
                 createPoolOfBatches(context.filePath(), requestedSchema);
 
-        return new ParquetReader(reader, requestedSchema, reader.getFilteredRecordCount(), poolOfBatches);
+        return new ParquetReader(reader, requestedSchema, reader.getRecordCount(), poolOfBatches);
     }
 
     private void setReadOptions(ParquetReadOptions.Builder builder) {
@@ -131,8 +124,6 @@ public class ParquetReaderFactory implements FormatReaderFactory {
         if (badRecordThresh != null) {
             builder.set(BAD_RECORD_THRESHOLD_CONF_KEY, badRecordThresh);
         }
-
-        builder.withRecordFilter(this.filter);
     }
 
     /** Clips `parquetSchema` according to `fieldNames`. */
@@ -141,8 +132,12 @@ public class ParquetReaderFactory implements FormatReaderFactory {
         for (int i = 0; i < projectedFields.length; ++i) {
             String fieldName = projectedFields[i];
             if (!parquetSchema.containsField(fieldName)) {
-                LOG.warn("{} does not exist in {}, will fill the field with null.", fieldName, parquetSchema);
-                types[i] = ParquetSchemaConverter.convertToParquetType(fieldName, projectedTypes[i]);
+                LOG.warn(
+                        "{} does not exist in {}, will fill the field with null.",
+                        fieldName,
+                        parquetSchema);
+                types[i] =
+                        ParquetSchemaConverter.convertToParquetType(fieldName, projectedTypes[i]);
                 unknownFieldsIndices.add(i);
             } else {
                 types[i] = parquetSchema.getType(fieldName);
@@ -154,9 +149,9 @@ public class ParquetReaderFactory implements FormatReaderFactory {
 
     private void checkSchema(MessageType fileSchema, MessageType requestedSchema)
             throws IOException, UnsupportedOperationException {
-
         if (projectedFields.length != requestedSchema.getFieldCount()) {
-            throw new RuntimeException("The quality of field type is incompatible with the request schema!");
+            throw new RuntimeException(
+                    "The quality of field type is incompatible with the request schema!");
         }
 
         /*
@@ -173,13 +168,16 @@ public class ParquetReaderFactory implements FormatReaderFactory {
                 if (requestedSchema.getColumns().get(i).getMaxDefinitionLevel() == 0) {
                     // Column is missing in data but the required data is non-nullable. This file is
                     // invalid.
-                    throw new IOException("Required column is missing in data file. Col: " + Arrays.toString(colPath));
+                    throw new IOException(
+                            "Required column is missing in data file. Col: "
+                                    + Arrays.toString(colPath));
                 }
             }
         }
     }
 
-    private Pool<ParquetReaderBatch> createPoolOfBatches(Path filePath, MessageType requestedSchema) {
+    private Pool<ParquetReaderBatch> createPoolOfBatches(
+            Path filePath, MessageType requestedSchema) {
         // In a VectorizedColumnBatch, the dictionary will be lazied deserialized.
         // If there are multiple batches at the same time, there may be thread safety problems,
         // because the deserialization of the dictionary depends on some internal structures.
@@ -189,8 +187,10 @@ public class ParquetReaderFactory implements FormatReaderFactory {
         return pool;
     }
 
-    private ParquetReaderBatch createReaderBatch(Path filePath, MessageType requestedSchema, Pool.Recycler<ParquetReaderBatch> recycler) {
-
+    private ParquetReaderBatch createReaderBatch(
+            Path filePath,
+            MessageType requestedSchema,
+            Pool.Recycler<ParquetReaderBatch> recycler) {
         WritableColumnVector[] writableVectors = createWritableVectors(requestedSchema);
         VectorizedColumnBatch columnarBatch = createVectorizedColumnBatch(writableVectors);
         return createReaderBatch(filePath, writableVectors, columnarBatch, recycler);
@@ -199,11 +199,15 @@ public class ParquetReaderFactory implements FormatReaderFactory {
     private WritableColumnVector[] createWritableVectors(MessageType requestedSchema) {
         WritableColumnVector[] columns = new WritableColumnVector[projectedTypes.length];
         List<Type> types = requestedSchema.getFields();
-
         for (int i = 0; i < projectedTypes.length; i++) {
-            columns[i] = createWritableColumnVector(batchSize, projectedTypes[i], types.get(i), requestedSchema.getColumns(), 0);
+            columns[i] =
+                    createWritableColumnVector(
+                            batchSize,
+                            projectedTypes[i],
+                            types.get(i),
+                            requestedSchema.getColumns(),
+                            0);
         }
-
         return columns;
     }
 
@@ -233,25 +237,31 @@ public class ParquetReaderFactory implements FormatReaderFactory {
 
     private class ParquetReader implements RecordReader<InternalRow> {
 
-        private ParquetFileReader reader;             // Parquet 文件读取工具,原生
-        private final MessageType requestedSchema;    // 用于读取列的 Schema
+        private ParquetFileReader reader;
 
-        // FileReader 总行数。
+        private final MessageType requestedSchema;
+
+        /**
+         * The total number of rows this RecordReader will eventually read. The sum of the rows of
+         * all the row groups.
+         */
         private final long totalRowCount;
 
-        private final Pool<ParquetReaderBatch> pool;    // 将parquet 数据转成批读的工具
+        private final Pool<ParquetReaderBatch> pool;
 
-        // 已经返回的行数
+        /** The number of rows that have been returned. */
         private long rowsReturned;
 
-        // 已读取的行数，包括当前正在处理的行组。
+        /** The number of rows that have been reading, including the current in flight row group. */
         private long totalCountLoadedSoFar;
 
-        // 当前行的文件位置。
+        /** The current row's position in the file. */
         private long currentRowPosition;
 
-        // 对于每个请求列，读取此列的读取器。
-        // 如果此列在文件中缺失，则为 NULL，在这种情况下，我们将使用 NULL 填充属性。
+        /**
+         * For each request column, the reader to read this column. This is NULL if this column is
+         * missing from the file, in which case we populate the attribute with NULL.
+         */
         @SuppressWarnings("rawtypes")
         private ColumnReader[] columnReaders;
 
@@ -289,19 +299,14 @@ public class ParquetReaderFactory implements FormatReaderFactory {
                 v.reset();
             }
             batch.columnarBatch.setNumRows(0);
-
             if (rowsReturned >= totalRowCount) {
                 return false;
             }
-
             if (rowsReturned == totalCountLoadedSoFar) {
                 readNextRowGroup();
             }
 
-
-            // 可能收到 batchSize 的影响，会读取多次出来
             int num = (int) Math.min(batchSize, totalCountLoadedSoFar - rowsReturned);
-
             for (int i = 0; i < columnReaders.length; ++i) {
                 if (columnReaders[i] == null) {
                     batch.writableVectors[i].fillWithNulls();
@@ -310,7 +315,6 @@ public class ParquetReaderFactory implements FormatReaderFactory {
                     columnReaders[i].readToVector(num, batch.writableVectors[i]);
                 }
             }
-
             rowsReturned += num;
             currentRowPosition += num;
             batch.columnarBatch.setNumRows(num);
@@ -318,17 +322,26 @@ public class ParquetReaderFactory implements FormatReaderFactory {
         }
 
         private void readNextRowGroup() throws IOException {
-            PageReadStore pages = reader.readNextFilteredRowGroup();
-
+            PageReadStore pages = reader.readNextRowGroup();
             if (pages == null) {
-                throw new IOException("expecting more rows but reached last block. Read " + rowsReturned + " out of " + totalRowCount);
+                throw new IOException(
+                        "expecting more rows but reached last block. Read "
+                                + rowsReturned
+                                + " out of "
+                                + totalRowCount);
             }
 
             List<Type> types = requestedSchema.getFields();
             columnReaders = new ColumnReader[types.size()];
             for (int i = 0; i < types.size(); ++i) {
                 if (!unknownFieldsIndices.contains(i)) {
-                    columnReaders[i] = createColumnReader(projectedTypes[i], types.get(i), requestedSchema.getColumns(), pages, 0);
+                    columnReaders[i] =
+                            createColumnReader(
+                                    projectedTypes[i],
+                                    types.get(i),
+                                    requestedSchema.getColumns(),
+                                    pages,
+                                    0);
                 }
             }
             totalCountLoadedSoFar += pages.getRowCount();
@@ -368,14 +381,17 @@ public class ParquetReaderFactory implements FormatReaderFactory {
 
         private final ColumnarRowIterator result;
 
-        protected ParquetReaderBatch(Path filePath,
+        protected ParquetReaderBatch(
+                Path filePath,
                 WritableColumnVector[] writableVectors,
                 VectorizedColumnBatch columnarBatch,
                 Pool.Recycler<ParquetReaderBatch> recycler) {
             this.writableVectors = writableVectors;
             this.columnarBatch = columnarBatch;
             this.recycler = recycler;
-            this.result = new ColumnarRowIterator(filePath, new ColumnarRow(columnarBatch), this::recycle);
+            this.result =
+                    new ColumnarRowIterator(
+                            filePath, new ColumnarRow(columnarBatch), this::recycle);
         }
 
         public void recycle() {

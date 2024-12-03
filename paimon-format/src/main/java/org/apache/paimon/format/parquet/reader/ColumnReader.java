@@ -22,7 +22,7 @@ import org.apache.paimon.data.columnar.writable.WritableColumnVector;
 
 import java.io.IOException;
 
-/** 从 Parquet 数据文件中读取一批记录到 {@link WritableColumnVector} 的列。 */
+/** Read a batch of records for a column to {@link WritableColumnVector} from parquet data file. */
 public interface ColumnReader<VECTOR extends WritableColumnVector> {
 
     /**

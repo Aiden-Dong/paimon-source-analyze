@@ -29,8 +29,6 @@ import org.apache.paimon.options.Options;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.statistics.FieldStatsCollector;
 import org.apache.paimon.types.RowType;
-import org.apache.parquet.filter2.compat.FilterCompat;
-import org.apache.parquet.filter2.predicate.ParquetFilters;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,15 +51,12 @@ public class ParquetFileFormat extends FileFormat {
     }
 
     @Override
-    public FormatReaderFactory createReaderFactory(RowType projectedRowType, List<Predicate> filters) {
-
-        FilterCompat.Filter convert = ParquetFilters.convert(filters);
-
+    public FormatReaderFactory createReaderFactory(
+            RowType projectedRowType, List<Predicate> filters) {
         return new ParquetReaderFactory(
                 getParquetConfiguration(formatContext.formatOptions()),
                 projectedRowType,
-                formatContext.readBatchSize(),
-                convert);
+                formatContext.readBatchSize());
     }
 
     @Override

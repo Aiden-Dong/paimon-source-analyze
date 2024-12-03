@@ -22,7 +22,6 @@ import org.apache.paimon.data.columnar.writable.WritableBooleanVector;
 import org.apache.paimon.data.columnar.writable.WritableIntVector;
 
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.column.page.PageReader;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.PrimitiveType;
@@ -37,9 +36,9 @@ public class BooleanColumnReader extends AbstractColumnReader<WritableBooleanVec
 
     private byte currentByte = 0;
 
-    public BooleanColumnReader(ColumnDescriptor descriptor, PageReadStore pageReadStore)
+    public BooleanColumnReader(ColumnDescriptor descriptor, PageReader pageReader)
             throws IOException {
-        super(descriptor, pageReadStore);
+        super(descriptor, pageReader);
         checkTypeName(PrimitiveType.PrimitiveTypeName.BOOLEAN);
     }
 
@@ -90,36 +89,6 @@ public class BooleanColumnReader extends AbstractColumnReader<WritableBooleanVec
                     break;
             }
             rowId += n;
-            left -= n;
-            runLenDecoder.currentCount -= n;
-        }
-    }
-
-    @Override
-    protected void skipBatch(int num) {
-        int left = num;
-        while (left > 0) {
-            if (runLenDecoder.currentCount == 0) {
-                runLenDecoder.readNextGroup();
-            }
-            int n = Math.min(left, runLenDecoder.currentCount);
-            switch (runLenDecoder.mode) {
-                case RLE:
-                    if (runLenDecoder.currentValue == maxDefLevel) {
-                        for (int i = 0; i < n; i++) {
-                             readBoolean();
-                        }
-                    }
-                    break;
-                case PACKED:
-                    for (int i = 0; i < n; ++i) {
-                        if (runLenDecoder.currentBuffer[runLenDecoder.currentBufferIdx++]
-                                == maxDefLevel) {
-                           readBoolean();
-                        }
-                    }
-                    break;
-            }
             left -= n;
             runLenDecoder.currentCount -= n;
         }
