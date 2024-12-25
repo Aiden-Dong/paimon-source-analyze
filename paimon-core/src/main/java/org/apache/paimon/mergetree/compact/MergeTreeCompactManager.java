@@ -109,6 +109,8 @@ public class MergeTreeCompactManager extends CompactFutureManager {
     public void triggerCompaction(boolean fullCompaction) {
         Optional<CompactUnit> optionalUnit;
 
+        // level-0 的文件，每个文件都是一个 sorted-run
+        // level>0 的文件，每层 所有文件对应一个 sorted-run
         List<LevelSortedRun> runs = levels.levelSortedRuns();     // 获取包含 level0 在内的所有的待读取的 SortedRun
 
         // 计算需要参与 compaction 的文件集合

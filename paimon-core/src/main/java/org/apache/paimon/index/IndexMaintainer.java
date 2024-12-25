@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-/** Maintainer to maintain index. */
+/** 维持索引的维护者。 */
 public interface IndexMaintainer<T> {
 
     void notifyNewRecord(T record);

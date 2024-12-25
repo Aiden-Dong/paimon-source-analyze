@@ -23,7 +23,7 @@ import org.apache.paimon.annotation.Public;
 import java.util.List;
 
 /**
- * A {@link TableWrite} for stream processing. You can use this class to commit multiple times.
+ * 用于流处理的 {@link TableWrite}。您可以使用此类多次提交。
  *
  * @since 0.4.0
  * @see StreamWriteBuilder
@@ -32,11 +32,10 @@ import java.util.List;
 public interface StreamTableWrite extends TableWrite {
 
     /**
-     * Prepare commit for {@link TableCommit}. Collect incremental files for this write.
+     * 为 {@link TableCommit} 准备提交。收集此写入的增量文件。
      *
-     * @param waitCompaction whether to wait for the end of the background compaction.
-     * @param commitIdentifier Committed transaction ID, can start from 0. If there are multiple
-     *     commits, please increment this ID.
+     * @param waitCompaction 是否等待后台压缩结束。
+     * @param commitIdentifier 已提交的事务 ID，可以从 0 开始。如果有多个提交，请递增此 ID。
      * @see StreamTableCommit#commit
      */
     List<CommitMessage> prepareCommit(boolean waitCompaction, long commitIdentifier)

@@ -23,7 +23,7 @@ import org.apache.paimon.annotation.Public;
 import java.util.List;
 
 /**
- * A {@link TableWrite} for batch processing. Recommended for one-time committing.
+ * 用于批处理的 {@link TableWrite}。建议用于一次性提交。
  *
  * @since 0.4.0
  */
@@ -31,7 +31,7 @@ import java.util.List;
 public interface BatchTableWrite extends TableWrite {
 
     /**
-     * Prepare commit for {@link TableCommit}. Collect incremental files for this write.
+     * 为 {@link TableCommit} 准备提交。收集此写入的增量文件。
      *
      * @see BatchTableCommit#commit
      */

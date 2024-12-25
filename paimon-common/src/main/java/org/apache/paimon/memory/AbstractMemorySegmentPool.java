@@ -24,8 +24,9 @@ import java.util.List;
 /** Abstract memory segment pool. */
 public abstract class AbstractMemorySegmentPool implements MemorySegmentPool {
     private final LinkedList<MemorySegment> segments;
-    private final int maxPages;
-    protected final int pageSize;
+
+    private final int maxPages;      // {write-buffer-size:256mb} / {page-size:64kb}
+    protected final int pageSize;    // {page-size:64kb}
 
     private int numPage;
 

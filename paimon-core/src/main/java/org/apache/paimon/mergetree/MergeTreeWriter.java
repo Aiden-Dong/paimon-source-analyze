@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
  */
 public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
+    // {write-buffer-spillable} 默认情况下 : 非流模式  || 对象存储
     private final boolean writeBufferSpillable;    // 是否支持 spill 操作
 
     // {write-buffer-spill.max-disk-size}
@@ -96,7 +97,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
     private long newSequenceNumber;               // ?
 
     private WriteBuffer writeBuffer;           // 当前数据所在的内存缓冲区
-
+  
     public MergeTreeWriter(
             boolean writeBufferSpillable,
             MemorySize maxDiskSize,
@@ -231,10 +232,12 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
                 waitForLatestCompaction = true;
             }
 
+            // change log 写
             final RollingFileWriter<KeyValue, DataFileMeta> changelogWriter =
                     changelogProducer == ChangelogProducer.INPUT
                             ? writerFactory.createRollingChangelogFileWriter(0) : null;
 
+            // {target-file-size:128M}
             final RollingFileWriter<KeyValue, DataFileMeta> dataWriter = writerFactory.createRollingMergeTreeFileWriter(0);
 
             // 数据刷盘

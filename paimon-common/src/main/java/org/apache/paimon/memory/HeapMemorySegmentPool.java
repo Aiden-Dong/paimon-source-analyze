@@ -22,6 +22,7 @@ package org.apache.paimon.memory;
 public class HeapMemorySegmentPool extends AbstractMemorySegmentPool {
 
     public HeapMemorySegmentPool(long maxMemory, int pageSize) {
+        // {write-buffer-size:256mb}, {page-size:64kb}
         super(maxMemory, pageSize);
     }
 

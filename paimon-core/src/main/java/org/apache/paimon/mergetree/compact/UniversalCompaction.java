@@ -42,11 +42,14 @@ public class UniversalCompaction implements CompactStrategy {
 
     private static final Logger LOG = LoggerFactory.getLogger(UniversalCompaction.class);
 
-    private final int maxSizeAmp;
-    private final int sizeRatio;
-    private final int numRunCompactionTrigger;
+    private final int maxSizeAmp;                         // ${compaction.max-size-amplification-percent:200}
+    private final int sizeRatio;                          // ${compaction.size-ratio:1}
 
-    @Nullable private final Long opCompactionInterval;
+    // 基于 Sortted-Run 的 compacation 触发策略
+    private final int numRunCompactionTrigger;            // ${num-sorted-run.compaction-trigger:5}
+
+    // 控制执行 compaction 的时间间隔
+    @Nullable private final Long opCompactionInterval;   // ${compaction.optimization-interval}
     @Nullable private Long lastOptimizedCompaction;
 
     public UniversalCompaction(int maxSizeAmp, int sizeRatio, int numRunCompactionTrigger) {
@@ -79,6 +82,7 @@ public class UniversalCompaction implements CompactStrategy {
         }
 
         // 1 checking for reducing size amplification
+        // 判断是否有读放大问题
         CompactUnit unit = pickForSizeAmp(maxLevel, runs);
         if (unit != null) {
             if (LOG.isDebugEnabled()) {
@@ -88,6 +92,7 @@ public class UniversalCompaction implements CompactStrategy {
         }
 
         // 2 checking for size ratio
+        // 按照 sizeRatio 阈值， 合并较小的 sortted-run
         unit = pickForSizeRatio(maxLevel, runs);
         if (unit != null) {
             if (LOG.isDebugEnabled()) {
@@ -97,7 +102,7 @@ public class UniversalCompaction implements CompactStrategy {
         }
 
         // 3 checking for file num
-        if (runs.size() > numRunCompactionTrigger) {
+        if (runs.size() > numRunCompactionTrigger) {   // 标识 sortted-run 数量过多
             // compacting for file num
             int candidateCount = runs.size() - numRunCompactionTrigger + 1;
             if (LOG.isDebugEnabled()) {
@@ -115,6 +120,7 @@ public class UniversalCompaction implements CompactStrategy {
             return null;
         }
 
+        // 计算总的大小
         long candidateSize =
                 runs.subList(0, runs.size() - 1).stream()
                         .map(LevelSortedRun::run)
@@ -124,6 +130,8 @@ public class UniversalCompaction implements CompactStrategy {
         long earliestRunSize = runs.get(runs.size() - 1).run().totalSize();
 
         // size amplification = percentage of additional size
+        // 表示总的 sortted-run 大小是最早的 sorttedRun 大小的2 倍以上(默认)
+        // 标识有读放大问题， 则进行 full-compacation
         if (candidateSize * 100 > maxSizeAmp * earliestRunSize) {
             updateLastOptimizedCompaction();
             return CompactUnit.fromLevelRuns(maxLevel, runs);
@@ -148,7 +156,11 @@ public class UniversalCompaction implements CompactStrategy {
 
     public CompactUnit pickForSizeRatio(
             int maxLevel, List<LevelSortedRun> runs, int candidateCount, boolean forcePick) {
+
+        // 计算 [0-candidateCount) 的所有 sorted-run 的总大小
         long candidateSize = candidateSize(runs, candidateCount);
+
+        //
         for (int i = candidateCount; i < runs.size(); i++) {
             LevelSortedRun next = runs.get(i);
             if (candidateSize * (100.0 + sizeRatio) / 100.0 < next.run().totalSize()) {

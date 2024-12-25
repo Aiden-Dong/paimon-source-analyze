@@ -31,7 +31,7 @@ import java.time.Duration;
 
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** A factory to create {@link RecordReader} expires records by time. */
+/** 用于创建 {@link RecordReader} 的工厂，通过时间使记录过期。 */
 public class RecordLevelExpire {
 
     private final int timeField;

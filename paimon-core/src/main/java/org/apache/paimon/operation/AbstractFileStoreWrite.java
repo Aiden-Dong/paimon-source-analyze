@@ -385,10 +385,13 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
 
         // 获取当前 Table 的最新的 SnapshotId
         Long latestSnapshotId = snapshotManager.latestSnapshotId();
+
+        // 获取当前表已存在的文件信息
         List<DataFileMeta> restoreFiles = new ArrayList<>();
         if (!ignorePreviousFiles && latestSnapshotId != null) {
             restoreFiles = scanExistingFileMetas(latestSnapshotId, partition, bucket);
         }
+
         IndexMaintainer<T> indexMaintainer = indexFactory == null ?
                 null
                 : indexFactory.createOrRestore(ignorePreviousFiles ? null : latestSnapshotId, partition, bucket);

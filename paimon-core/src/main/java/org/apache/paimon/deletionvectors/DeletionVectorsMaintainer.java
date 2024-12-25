@@ -33,7 +33,7 @@ import java.util.Optional;
 
 import static org.apache.paimon.deletionvectors.DeletionVectorsIndexFile.DELETION_VECTORS_INDEX;
 
-/** Maintainer of deletionVectors index. */
+/** 删除向量索引的维护者. */
 public class DeletionVectorsMaintainer {
 
     private final IndexFileHandler indexFileHandler;

@@ -41,10 +41,9 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Base {@link FileStoreWrite} implementation which supports using shared memory and preempting
- * memory from other writers.
+ * 基于 {@link FileStoreWrite} 的实现，支持使用共享内存和抢占其他写者的内存。
  *
- * @param <T> type of record to write.
+ * @param <T> 要写入的记录类型。
  */
 public abstract class MemoryFileStoreWrite<T> extends AbstractFileStoreWrite<T> {
     private static final Logger LOG = LoggerFactory.getLogger(MemoryFileStoreWrite.class);

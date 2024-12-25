@@ -52,10 +52,10 @@ public abstract class BinaryIndexedSortable implements IndexedSortable {
     protected final ArrayList<MemorySegment> sortIndex;     // 已经生成的 segment 集合
 
     // normalized key attributes
-    private final int numKeyBytes;
-    protected final int indexEntrySize;
-    private final int indexEntriesPerSegment;
-    protected final int lastIndexEntryOffset;
+    private final int numKeyBytes;             // key 的字节长度大小
+    protected final int indexEntrySize;        // 每一个 index-entry 大小
+    private final int indexEntriesPerSegment;  // 每个 segment 能放置的 index 个数
+    protected final int lastIndexEntryOffset;  // 最后一个 index-entry 的偏移
     private final boolean normalizedKeyFullyDetermines;
     private final boolean useNormKeyUninverted;
 

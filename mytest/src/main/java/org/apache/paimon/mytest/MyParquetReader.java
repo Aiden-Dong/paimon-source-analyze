@@ -44,7 +44,7 @@ import java.util.*;
 public class MyParquetReader {
 
   public static void main(String[] args) throws IOException {
-    Path path = new Path("file:///Users/lan/tmp/paimon-catalog/my_db.db/my_table/bucket-0/data-a486283f-101e-406b-8f12-c4cc23f9fed6-0.parquet");
+    Path path = new Path("file:///Users/lan/tmp/data-f5c44648-a09a-4535-a74f-bdbcedc270ad-0.parquet");
 
     Configuration configuration = new Configuration();
 
@@ -53,7 +53,7 @@ public class MyParquetReader {
 //    ParquetInputFormat.setFilterPredicate(configuration, f0);
 
     ParquetReadOptions options = ParquetReadOptions.builder()
-            .withRecordFilter(FilterCompat.get(f0))
+//            .withRecordFilter(FilterCompat.get(f0))
             .build();
 
     long startTime = System.currentTimeMillis();
@@ -73,8 +73,10 @@ public class MyParquetReader {
 
     PageReadStore rowGroup;
     MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-    while ((rowGroup = parquetFileReader.readNextFilteredRowGroup()) != null){
-      System.out.println("=======================Row-GROUP=======================");
+    int rowGroupIndex = 0;
+    while ((rowGroup = parquetFileReader.readNextRowGroup()) != null){
+      rowGroupIndex ++;
+      System.out.println(String.format("=======================Row-GROUP : %d =======================", rowGroupIndex));
       long rowCount = rowGroup.getRowCount();
       System.out.println("row-count : " + rowCount);
       System.out.println("Row-group index : " + rowGroup.getRowIndexOffset());
@@ -88,16 +90,26 @@ public class MyParquetReader {
 
       System.out.println("indexs : " + rowIndexes1);
       DataPage dataPage;
-      long pageCount = 0;
-      PageReader pageReader = rowGroup.getPageReader(columns.get(0));
-//      while ((dataPage = pageReader.readPage()) != null){
-//          pageCount = pageCount + 1;
-//
-//
-//          System.out.println("page - " + pageCount + " : " + dataPage);
-//          System.out.println("page - " + pageCount + " : " + dataPage.getFirstRowIndex());
-//
-//        }
+
+
+      for(int i = 0; i< columns.size(); i++){
+        long pageCount = 0;
+
+        PageReader pageReader = rowGroup.getPageReader(columns.get(i));
+        while ((dataPage = pageReader.readPage()) != null){
+          pageCount = pageCount + 1;
+
+
+          System.out.println(rowGroupIndex + " - " + i + "- page - " + pageCount + " : " + dataPage);
+          System.out.println(rowGroupIndex + " - " + i + "- page - " + pageCount + " : " + dataPage.getFirstRowIndex());
+
+
+          if (pageCount >= 1) break;
+
+
+        }
+      }
+
 
 //
 //      for (ColumnDescriptor column : columns) {
@@ -116,14 +128,14 @@ public class MyParquetReader {
 //        }
 //        System.out.println("----------------------------------------------");
 //      }
-
-      RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
 //
-//      // 遍历记录
-      for (int i = 0; i < rowCount; i++) {
-        Group group = recordReader.read();
-        System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
-      }
+//      RecordReader<Group> recordReader = columnIO.getRecordReader(rowGroup, new GroupRecordConverter(schema));
+////
+////      // 遍历记录
+//      for (int i = 0; i < rowCount; i++) {
+//        Group group = recordReader.read();
+//        System.out.println("Record " + i + ": " + group.toString().replaceAll("\n", ","));
+//      }
 
       System.out.println("==================================================");
     }

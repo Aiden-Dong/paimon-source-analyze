@@ -25,33 +25,39 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-/** Manager to submit compaction task. */
+/**
+ * Manager to submit compaction task.
+ * 提交压缩任务的管理者
+ * */
 public interface CompactManager extends Closeable {
 
-    /** Should wait compaction finish. */
+    /** 应该等待 compaction 结束 */
     boolean shouldWaitForLatestCompaction();
 
     boolean shouldWaitForPreparingCheckpoint();
 
-    /** Add a new file. */
+    /** 将新的文件添加到压缩任务中. */
     void addNewFile(DataFileMeta file);
 
     Collection<DataFileMeta> allFiles();
 
     /**
-     * Trigger a new compaction task.
+     * 触发一个新的压缩任务执行.
      *
      * @param fullCompaction if caller needs a guaranteed full compaction
      */
     void triggerCompaction(boolean fullCompaction);
 
-    /** Get compaction result. Wait finish if {@code blocking} is true. */
+    /**
+     * 获取压缩结果， 如果 {@code blocking} 设置为 true 则阻塞等待压缩任务结束
+     * Get compaction result. Wait finish if {@code blocking} is true.
+     * */
     Optional<CompactResult> getCompactionResult(boolean blocking)
             throws ExecutionException, InterruptedException;
 
-    /** Cancel currently running compaction task. */
+    /** 取消当前的压缩任务执行 */
     void cancelCompaction();
 
-    /** Check if a compaction is in progress, or if a compaction result remains to be fetched. */
+    /** 检查压缩任务是否还在进行中，如果已经运行完嗯获取结果. */
     boolean isCompacting();
 }

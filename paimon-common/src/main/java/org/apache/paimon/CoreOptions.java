@@ -435,17 +435,15 @@ public class CoreOptions implements Serializable {
                     .intType()
                     .defaultValue(200)
                     .withDescription(
-                            "The size amplification is defined as the amount (in percentage) of additional storage "
-                                    + "needed to store a single byte of data in the merge tree for changelog mode table.");
+                            "大小放大效应定义为在合并树（merge tree）中的增量日志模式（changelog mode）表中存储单个数据字节所需的额外存储量（以百分比表示）。");
 
     public static final ConfigOption<Integer> COMPACTION_SIZE_RATIO =
             key("compaction.size-ratio")
                     .intType()
                     .defaultValue(1)
                     .withDescription(
-                            "Percentage flexibility while comparing sorted run size for changelog mode table. If the candidate sorted run(s) "
-                                    + "size is 1% smaller than the next sorted run's size, then include next sorted run "
-                                    + "into this candidate set.");
+                            "在比较增量日志模式（changelog mode）表的已排序数据段大小时的百分比灵活性。" +
+                                    "如果候选已排序数据段的大小比下一个已排序数据段的大小小 1%，则将下一个已排序数据段包括在此候选集合中。");
 
     public static final ConfigOption<Duration> COMPACTION_OPTIMIZATION_INTERVAL =
             key("compaction.optimization-interval")
@@ -1357,6 +1355,7 @@ public class CoreOptions implements Serializable {
 
     public boolean writeBufferSpillable(boolean usingObjectStore, boolean isStreaming) {
         // if not streaming mode, we turn spillable on by default.
+        // write-buffer-spillable
         return options.getOptional(WRITE_BUFFER_SPILLABLE).orElse(usingObjectStore || !isStreaming);
     }
 
@@ -1475,6 +1474,7 @@ public class CoreOptions implements Serializable {
 
     public LookupStrategy lookupStrategy() {
         return LookupStrategy.from(
+                // merge-engine
                 mergeEngine().equals(MergeEngine.FIRST_ROW),
                 changelogProducer().equals(ChangelogProducer.LOOKUP),
                 deletionVectorsEnabled());

@@ -24,7 +24,7 @@ import org.apache.paimon.options.MemorySize;
 import java.util.List;
 
 /**
- * MemorySegment pool to hold pages in memory.
+ * MemorySegmentPool 用于在内存中保存pages。
  *
  * @since 0.4.0
  */
@@ -34,16 +34,16 @@ public interface MemorySegmentPool extends MemorySegmentSource {
     int DEFAULT_PAGE_SIZE = 32 * 1024;
 
     /**
-     * Get the page size of each page this pool holds.
+     * 获取此池中每个page的大小。
      *
-     * @return the page size, the bytes size in one page.
+     * @return 每个page中的字节数。
      */
     int pageSize();
 
     /**
-     * Return all pages back into this pool.
+     * 将所有页面返回到此池中。
      *
-     * @param memory the pages which want to be returned.
+     * @param memory 要返回的页面。
      */
     void returnAll(List<MemorySegment> memory);
 

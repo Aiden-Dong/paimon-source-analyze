@@ -21,16 +21,14 @@ package org.apache.paimon.utils;
 import java.io.IOException;
 
 /**
- * A simple iterator interface. The key differences to the {@link java.util.Iterator} are
+ * 一个简单的迭代器接口。与 {@link java.util.Iterator} 的主要区别是：
  *
  * <ul>
- *   <li>It has two distinct <code>next()</code>, where one variant allows to pass an object that
- *       may be reused, if the type is mutable.
- *   <li>It consolidates the logic in a single <code>next()</code> function, rather than splitting
- *       it over two different functions such as <code>hasNext()</code> and <code>next()</code>
+ *   <li>它有两个不同的 `next()` 方法，其中一个变体允许传递一个对象，如果类型是可变的，则可以重用该对象。</li>
+ *   <li>它将逻辑合并到单个 `next()` 函数中，而不是将其拆分为两个不同的函数，如 `hasNext()` 和 `next()`。</li>
  * </ul>
  *
- * @param <E> The element type of the collection iterated over.
+ * @param <E> 迭代的集合的元素类型。
  */
 public interface MutableObjectIterator<E> {
 

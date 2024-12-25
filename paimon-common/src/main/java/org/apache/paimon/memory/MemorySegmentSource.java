@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 public interface MemorySegmentSource {
 
     /**
-     * Gets the next memory segment. If no more segments are available, it returns null.
+     * 获取下一个内存段。如果没有更多可用段，则返回 null。
      *
-     * @return The next memory segment, or null, if none is available.
+     * @return 下一个内存段，如果没有可用段，则返回 null。
      */
     @Nullable
     MemorySegment nextSegment();

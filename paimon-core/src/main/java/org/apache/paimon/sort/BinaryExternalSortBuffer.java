@@ -43,7 +43,7 @@ import java.util.List;
 import static org.apache.paimon.codegen.CodeGenUtils.newNormalizedKeyComputer;
 import static org.apache.paimon.codegen.CodeGenUtils.newRecordComparator;
 
-/** A spillable {@link SortBuffer}. */
+/** 可溢写的 {@link SortBuffer}。 */
 public class BinaryExternalSortBuffer implements SortBuffer {
 
     private final BinaryRowSerializer serializer;
@@ -189,6 +189,7 @@ public class BinaryExternalSortBuffer implements SortBuffer {
     @Override
     public boolean write(InternalRow record) throws IOException {
         while (true) {
+            // 写内存
             boolean success = inMemorySortBuffer.write(record);
             if (success) {
                 this.numRecords++;

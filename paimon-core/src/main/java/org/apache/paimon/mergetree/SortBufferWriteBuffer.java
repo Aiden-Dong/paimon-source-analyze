@@ -107,6 +107,7 @@ public class SortBufferWriteBuffer implements WriteBuffer {
         }
         InternalRowSerializer serializer = InternalSerializers.create(KeyValue.schema(keyType, valueType));
 
+        // 完全基于内存的 Buffer
         BinaryInMemorySortBuffer inMemorySortBuffer = BinaryInMemorySortBuffer.createBuffer(
                         normalizedKeyComputer, serializer, keyComparator, memoryPool);
 

@@ -27,29 +27,29 @@ import org.apache.paimon.metrics.MetricRegistry;
 import org.apache.paimon.table.Table;
 
 /**
- * Write of {@link Table} to provide {@link InternalRow} writing.
+ * 将 {@link InternalRow} 写入 {@link Table} 中。
  *
  * @since 0.4.0
  */
 @Public
 public interface TableWrite extends AutoCloseable {
 
-    /** With {@link IOManager}, this is needed if 'write-buffer-spillable' is set to true. */
+    /** 如果将 'write-buffer-spillable' 设置为 true，则需要使用 {@link IOManager}。 */
     TableWrite withIOManager(IOManager ioManager);
 
-    /** With {@link MemorySegmentPool} for the current table write. */
+    /** 使用 {@link MemorySegmentPool} 进行当前表的写入。 */
     TableWrite withMemoryPool(MemorySegmentPool memoryPool);
 
-    /** Calculate which partition {@code row} belongs to. */
+    /** 计算 {@code row} 属于哪个分区。 */
     BinaryRow getPartition(InternalRow row);
 
-    /** Calculate which bucket {@code row} belongs to. */
+    /** 计算 {@code row} 属于哪个bucket。 */
     int getBucket(InternalRow row);
 
-    /** Write a row to the writer. */
+    /** 将一行写入写入器。 */
     void write(InternalRow row) throws Exception;
 
-    /** Write a row with bucket. */
+    /** 指定 bucket 写入一行数据。 */
     void write(InternalRow row, int bucket) throws Exception;
 
     /**
@@ -61,6 +61,6 @@ public interface TableWrite extends AutoCloseable {
      */
     void compact(BinaryRow partition, int bucket, boolean fullCompaction) throws Exception;
 
-    /** With metrics to measure compaction. */
+    /** 使用指标来衡量压缩。 */
     TableWrite withMetricRegistry(MetricRegistry registry);
 }

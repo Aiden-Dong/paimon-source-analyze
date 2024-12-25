@@ -26,7 +26,7 @@ import java.util.List;
 
 import static org.apache.paimon.utils.Preconditions.checkArgument;
 
-/** Binary version of {@code MergeIterator}. Use {@code RecordComparator} to compare record. */
+/** {@code MergeIterator} 的二进制版本。使用 {@code RecordComparator} 来比较记录。 */
 public class BinaryMergeIterator<Entry> implements MutableObjectIterator<Entry> {
 
     // heap over the head elements of the stream

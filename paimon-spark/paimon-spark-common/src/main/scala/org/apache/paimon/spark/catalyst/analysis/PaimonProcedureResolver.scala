@@ -48,12 +48,12 @@ case class PaimonProcedureResolver(sparkSession: SparkSession)
 
   protected lazy val catalogManager = sparkSession.sessionState.catalogManager
 
-  override def apply(plan: LogicalPlan): LogicalPlan = plan.resolveOperators {
+  override def apply(plan: LogicalPlan): LogicalPlan = plan.resolveOperators {I
     case PaimonCallStatement(CatalogAndIdentifier(catalog, identifier), arguments) =>
       val procedure = catalog.asProcedureCatalog.loadProcedure(identifier)
       val parameters = procedure.parameters
       val normalizedParameters = normalizeParameters(parameters)
-      validateParameters(normalizedParameters)
+      validateParameters(normalizedParameters)Hanby
       val normalizedArguments = normalizeArguments(arguments)
       PaimonCallCommand(
         procedure,

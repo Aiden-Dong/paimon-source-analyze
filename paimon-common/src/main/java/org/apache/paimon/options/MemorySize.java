@@ -38,12 +38,11 @@ import static org.apache.paimon.utils.Preconditions.checkArgument;
 import static org.apache.paimon.utils.Preconditions.checkNotNull;
 
 /**
- * MemorySize is a representation of a number of bytes, viewable in different units.
+ * MemorySize 表示字节数，可以以不同的单位显示。
  *
- * <h2>Parsing</h2>
+ * <h2>解析</h2>
  *
- * <p>The size can be parsed from a text expression. If the expression is a pure number, the value
- * will be interpreted as bytes.
+ * <p>可以从文本表达式解析大小。如果表达式是纯数字，则该值将被解释为字节。
  *
  * @since 0.4.0
  */

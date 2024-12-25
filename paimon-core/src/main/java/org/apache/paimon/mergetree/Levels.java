@@ -152,7 +152,9 @@ public class Levels {
 
     public List<LevelSortedRun> levelSortedRuns() {
         List<LevelSortedRun> runs = new ArrayList<>();
+        // level-0 的文件， 每个文件都是一个 sorted-run
         level0.forEach(file -> runs.add(new LevelSortedRun(0, SortedRun.fromSingle(file))));
+        // level > 0 的文件， 每层所有文件是一个 sorted-run
         for (int i = 0; i < levels.size(); i++) {
             SortedRun run = levels.get(i);
             if (run.nonEmpty()) {

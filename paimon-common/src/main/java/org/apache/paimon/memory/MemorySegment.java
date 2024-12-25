@@ -57,13 +57,10 @@ public final class MemorySegment {
     public static final boolean LITTLE_ENDIAN =
             (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN);
 
-    @Nullable private byte[] heapMemory;
-
-    @Nullable private ByteBuffer offHeapBuffer;
-
-    private long address;
-
-    private final int size;
+    @Nullable private byte[] heapMemory;            // 存储数据的堆内内存空间
+    @Nullable private ByteBuffer offHeapBuffer;     // 存储数据的堆外内存空间
+    private long address;   // 索引地址
+    private final int size;                         // 数据存储大小
 
     private MemorySegment(
             @Nullable byte[] heapMemory,
