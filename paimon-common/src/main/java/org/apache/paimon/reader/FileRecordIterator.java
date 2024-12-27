@@ -35,9 +35,9 @@ import java.util.function.Function;
 public interface FileRecordIterator<T> extends RecordReader.RecordIterator<T> {
 
     /**
-     * Get the row position of the row returned by {@link RecordReader.RecordIterator#next}.
+     * 获取由 {@link RecordReader.RecordIterator#next} 返回的行的位置。
      *
-     * @return the row position from 0 to the number of rows in the file
+     * @return 行的位置，从 0 到文件中行的数量
      */
     long returnedPosition();
 

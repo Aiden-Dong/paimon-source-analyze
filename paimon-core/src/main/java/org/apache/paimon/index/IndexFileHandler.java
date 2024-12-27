@@ -42,7 +42,7 @@ import java.util.Optional;
 import static org.apache.paimon.deletionvectors.DeletionVectorsIndexFile.DELETION_VECTORS_INDEX;
 import static org.apache.paimon.index.HashIndexFile.HASH_INDEX;
 
-/** Handle index files. */
+/** 索引文件句柄. */
 public class IndexFileHandler {
 
     private final SnapshotManager snapshotManager;
@@ -64,9 +64,10 @@ public class IndexFileHandler {
         this.deletionVectorsIndex = deletionVectorsIndex;
     }
 
-    public Optional<IndexFileMeta> scan(
-            long snapshotId, String indexType, BinaryRow partition, int bucket) {
-        List<IndexManifestEntry> entries = scan(snapshotId, indexType, partition);
+
+    public Optional<IndexFileMeta> scan(long snapshotId, String indexType, BinaryRow partition, int bucket) {
+
+        List<IndexManifestEntry> entries = scan(snapshotId, indexType, partition);  // 读取当前文件对应的索引文件
         List<IndexManifestEntry> result = new ArrayList<>();
         for (IndexManifestEntry file : entries) {
             if (file.bucket() == bucket) {
@@ -74,9 +75,9 @@ public class IndexFileHandler {
             }
         }
         if (result.size() > 1) {
-            throw new IllegalArgumentException(
-                    "Find multiple index files for one bucket: " + result);
+            throw new IllegalArgumentException("Find multiple index files for one bucket: " + result);
         }
+
         return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0).indexFile());
     }
 
@@ -168,15 +169,18 @@ public class IndexFileHandler {
     }
 
     public Map<String, DeletionVector> readAllDeletionVectors(IndexFileMeta fileMeta) {
+
         if (!fileMeta.indexType().equals(DELETION_VECTORS_INDEX)) {
             throw new IllegalArgumentException(
                     "Input file is not deletion vectors index " + fileMeta.indexType());
         }
-        LinkedHashMap<String, Pair<Integer, Integer>> deleteIndexRange =
-                fileMeta.deletionVectorsRanges();
+
+        LinkedHashMap<String, Pair<Integer, Integer>> deleteIndexRange = fileMeta.deletionVectorsRanges();
+
         if (deleteIndexRange == null || deleteIndexRange.isEmpty()) {
             return Collections.emptyMap();
         }
+
         return deletionVectorsIndex.readAllDeletionVectors(fileMeta.fileName(), deleteIndexRange);
     }
 

@@ -33,12 +33,17 @@ import java.util.Optional;
 
 import static org.apache.paimon.deletionvectors.DeletionVectorsIndexFile.DELETION_VECTORS_INDEX;
 
-/** 删除向量索引的维护者. */
+/**
+ * 删除向量索引的维护者.
+ * 每个 bucket 对应一个删除向量维护者
+ * */
 public class DeletionVectorsMaintainer {
 
-    private final IndexFileHandler indexFileHandler;
-    private final Map<String, DeletionVector> deletionVectors;
-    private boolean modified;
+    private final IndexFileHandler indexFileHandler;              // 索引文件的句柄
+
+    // <产生删除事件的文件名, 该文件上发生的删除事件向量>
+    private final Map<String, DeletionVector> deletionVectors;    // 删除向量集合，
+    private boolean modified;                                     // 本次写入是否发生过删除行为
 
     private DeletionVectorsMaintainer(
             IndexFileHandler fileHandler,
@@ -46,39 +51,32 @@ public class DeletionVectorsMaintainer {
             BinaryRow partition,
             int bucket) {
         this.indexFileHandler = fileHandler;
-        IndexFileMeta indexFile =
-                snapshotId == null
-                        ? null
-                        : fileHandler
-                                .scan(snapshotId, DELETION_VECTORS_INDEX, partition, bucket)
-                                .orElse(null);
-        this.deletionVectors =
-                indexFile == null
-                        ? new HashMap<>()
+        IndexFileMeta indexFile = snapshotId == null ?
+                null : fileHandler.scan(snapshotId, DELETION_VECTORS_INDEX, partition, bucket).orElse(null);
+
+        this.deletionVectors = indexFile == null ? new HashMap<>()
                         : new HashMap<>(indexFileHandler.readAllDeletionVectors(indexFile));
         this.modified = false;
     }
 
     /**
-     * Notifies a new deletion which marks the specified row position as deleted with the given file
-     * name.
+     * 通知一个新的删除操作，该操作将指定的文件中的指定行位置标记为已删除。
      *
-     * @param fileName The name of the file where the deletion occurred.
-     * @param position The row position within the file that has been deleted.
+     * @param fileName 发生删除操作的文件名。
+     * @param position 文件中已被删除的行位置。
      */
     public void notifyNewDeletion(String fileName, long position) {
         DeletionVector deletionVector =
                 deletionVectors.computeIfAbsent(fileName, k -> new BitmapDeletionVector());
-        if (deletionVector.checkedDelete(position)) {
+        if (deletionVector.checkedDelete(position)) {  // 添加删除操作
             modified = true;
         }
     }
 
     /**
-     * Removes the specified file's deletion vector, this method is typically used for remove before
-     * files' deletion vector in compaction.
+     * 移除指定文件的删除向量，此方法通常用于在压缩之前移除文件的删除向量。
      *
-     * @param fileName The name of the file whose deletion vector should be removed.
+     * @param fileName 应移除其删除向量的文件名。
      */
     public void removeDeletionVectorOf(String fileName) {
         if (deletionVectors.containsKey(fileName)) {
@@ -88,11 +86,9 @@ public class DeletionVectorsMaintainer {
     }
 
     /**
-     * Prepares to commit: write new deletion vectors index file if any modifications have been
-     * made.
+     * 准备提交：如果进行了任何修改，则写入新的删除向量索引文件。
      *
-     * @return A list containing the metadata of the deletion vectors index file, or an empty list
-     *     if no changes need to be committed.
+     * @return 包含删除向量索引文件元数据的列表，如果没有需要提交的更改，则为空列表。
      */
     public List<IndexFileMeta> prepareCommit() {
         if (modified) {
@@ -104,11 +100,10 @@ public class DeletionVectorsMaintainer {
     }
 
     /**
-     * Retrieves the deletion vector associated with the specified file name.
+     * 检索与指定文件名关联的删除向量
      *
-     * @param fileName The name of the file for which the deletion vector is requested.
-     * @return An {@code Optional} containing the deletion vector if it exists, or an empty {@code
-     *     Optional} if not.
+     * @param fileName 请求删除向量的文件名。
+     * @return 如果存在则包含删除向量的 {@code Optional}，否则为空 {@code Optional}。
      */
     public Optional<DeletionVector> deletionVectorOf(String fileName) {
         return Optional.ofNullable(deletionVectors.get(fileName));

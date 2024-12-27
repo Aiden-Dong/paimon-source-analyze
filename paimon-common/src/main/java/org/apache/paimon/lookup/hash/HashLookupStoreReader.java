@@ -92,23 +92,15 @@ public class HashLookupStoreReader
 
         LOG.info("Opening file {}", file.getName());
 
-        PageFileInput fileInput =
-                PageFileInput.create(
-                        file,
-                        cachePageSize,
-                        compressionFactory,
-                        context.uncompressBytes,
-                        context.compressPages);
+        PageFileInput fileInput = PageFileInput.create(file, cachePageSize, compressionFactory,
+                        context.uncompressBytes, context.compressPages);
+
         inputView = new FileBasedRandomInputView(fileInput, cacheManager);
 
         if (context.bloomFilterEnabled) {
-            bloomFilter =
-                    new FileBasedBloomFilter(
-                            fileInput,
-                            cacheManager,
-                            context.bloomFilterExpectedEntries,
-                            0,
-                            context.bloomFilterBytes);
+            bloomFilter = new FileBasedBloomFilter(
+                            fileInput, cacheManager, context.bloomFilterExpectedEntries,
+                    0, context.bloomFilterBytes);
         }
     }
 

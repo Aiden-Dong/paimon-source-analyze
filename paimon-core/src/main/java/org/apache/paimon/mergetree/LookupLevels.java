@@ -167,11 +167,14 @@ public class LookupLevels<T> implements Levels.DropFileCallback, Closeable {
 
     private LookupFile createLookupFile(DataFileMeta file) throws IOException {
         File localFile = localFileFactory.get();
+
         if (!localFile.createNewFile()) {
             throw new IOException("Can not create new file: " + localFile);
         }
+
         LookupStoreWriter kvWriter =
                 lookupStoreFactory.createWriter(localFile, bfGenerator.apply(file.rowCount()));
+
         LookupStoreFactory.Context context;
         try (RecordReader<KeyValue> reader = fileReaderFactory.apply(file)) {
             KeyValue kv;

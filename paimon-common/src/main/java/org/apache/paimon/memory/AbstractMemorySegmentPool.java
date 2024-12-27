@@ -25,8 +25,11 @@ import java.util.List;
 public abstract class AbstractMemorySegmentPool implements MemorySegmentPool {
     private final LinkedList<MemorySegment> segments;
 
-    private final int maxPages;      // {write-buffer-size:256mb} / {page-size:64kb}
-    protected final int pageSize;    // {page-size:64kb}
+    // 当前 Pool 资源池可以提供的最多的 page 数量
+    // {write-buffer-size:256mb} / {page-size:64kb}
+    private final int maxPages;
+    // 每个 MemorySegment 的页面大小  {page-size:64kb}
+    protected final int pageSize;
 
     private int numPage;
 

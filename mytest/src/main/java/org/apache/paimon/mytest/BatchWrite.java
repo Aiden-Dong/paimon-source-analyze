@@ -3,11 +3,14 @@ package org.apache.paimon.mytest;
 import org.apache.paimon.data.BinaryArray;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.GenericRow;
+import org.apache.paimon.disk.IOManager;
+import org.apache.paimon.disk.IOManagerImpl;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.BatchWriteBuilder;
 import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.types.RowKind;
 
 import java.util.List;
 import java.util.Random;
@@ -24,18 +27,19 @@ import java.util.UUID;
 public class BatchWrite {
   public static void main(String[] args) throws Exception {
     // 1. 创建一个WriteBuilder（可序列化）
-    Table table = TableUtil.getTable();   // PrimaryKeyFileStoreTable
-    BatchWriteBuilder writeBuilder = table.newBatchWriteBuilder();
-    // BatchWriteBuilderImpl
+    Table table = TableUtil.getTable();                                // PrimaryKeyFileStoreTable
+    BatchWriteBuilder writeBuilder = table.newBatchWriteBuilder();     // BatchWriteBuilderImpl
 
     String[] items = new String[]{"h1", "h2", "h3"};
+    IOManager ioManager  = new IOManagerImpl("/Users/lan/tmp/paimon-catalog/my_db.db/tmp");
 
     // 2. 在分布式任务中写入记录
-    BatchTableWrite write = writeBuilder.newWrite();  // TableWriteImpl
+    BatchTableWrite write = (BatchTableWrite)writeBuilder.newWrite()
+            .withIOManager(ioManager);  // TableWriteImpl
 
     long startTime = System.currentTimeMillis();
 
-    for(int i = 0; i < 400000; i++){
+    for(int i = 0; i < 400_000; i++){
 
       GenericRow genericRow = GenericRow.of(
               (long)i,
@@ -68,6 +72,28 @@ public class BatchWrite {
     long stopTime = System.currentTimeMillis();
 
     System.out.println("耗时 : " + (stopTime - startTime));
+
+    // 2. 在分布式任务中写入记录
+    write = (BatchTableWrite)writeBuilder.newWrite()
+            .withIOManager(ioManager);  // TableWriteImpl
+
+    for(int i = 100; i < 200; i++){
+      GenericRow genericRow = GenericRow.ofKind(RowKind.DELETE,
+              (long)i, null, null, null, null, null, null);
+      write.write(genericRow);
+
+    }
+
+    System.out.println("precommit start");
+    messages = write.prepareCommit();
+    System.out.println("precommit success");
+
+    // 3. 将所有 CommitMessages 收集到一个全局节点并提交
+    commit = writeBuilder.newCommit();
+
+    System.out.println("commit start");
+    commit.commit(messages);
+    System.out.println("commit success");
 
     // 中止不成功的提交以删除数据文件
     // commit.abort(messages);

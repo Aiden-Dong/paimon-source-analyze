@@ -40,17 +40,17 @@ import java.util.Optional;
 public interface DeletionVector {
 
     /**
-     * Marks the row at the specified position as deleted.
+     * 将指定位置标记为删除.
      *
-     * @param position The position of the row to be marked as deleted.
+     * @param position 要标记为已删除的行的位置。.
      */
     void delete(long position);
 
     /**
-     * Marks the row at the specified position as deleted.
+     * 将指定位置的行标记为已删除。
      *
-     * @param position The position of the row to be marked as deleted.
-     * @return true if the added position wasn't already deleted. False otherwise.
+     * @param position 要标记为已删除的行的位置。
+     * @return 如果添加的位置之前没有被删除，则返回 true。否则返回 false。
      */
     default boolean checkedDelete(long position) {
         if (isDeleted(position)) {
@@ -62,61 +62,65 @@ public interface DeletionVector {
     }
 
     /**
-     * Checks if the row at the specified position is marked as deleted.
+     * 检查指定位置的行是否标记为已删除。
      *
-     * @param position The position of the row to check.
-     * @return true if the row is marked as deleted, false otherwise.
+     * @param position 要检查的行的位置。
+     * @return 如果行被标记为已删除，则返回 true，否则返回 false。
      */
     boolean isDeleted(long position);
 
     /**
-     * Determines if the deletion vector is empty, indicating no deletions.
+     * 确定删除向量是否为空，表示没有删除。
      *
-     * @return true if the deletion vector is empty, false if it contains deletions.
+     * @return 如果删除向量为空，则返回 true，否则返回 false。
      */
     boolean isEmpty();
 
     /**
-     * Serializes the deletion vector to a byte array for storage or transmission.
+     * 将删除向量序列化为字节数组以进行存储或传输。
      *
-     * @return A byte array representing the serialized deletion vector.
+     * @return 表示序列化删除向量的字节数组。
      */
     byte[] serializeToBytes();
 
     /**
-     * Deserializes a deletion vector from a byte array.
+     * 从字节数组中反序列化删除向量。
      *
-     * @param bytes The byte array containing the serialized deletion vector.
-     * @return A DeletionVector instance that represents the deserialized data.
+     * @param bytes 包含序列化删除向量的字节数组。
+     * @return 表示反序列化数据的 DeletionVector 实例。
      */
     static DeletionVector deserializeFromBytes(byte[] bytes) {
+
         try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
                 DataInputStream dis = new DataInputStream(bis)) {
+
             int magicNum = dis.readInt();
+
             if (magicNum == BitmapDeletionVector.MAGIC_NUMBER) {
                 return BitmapDeletionVector.deserializeFromDataInput(dis);
             } else {
                 throw new RuntimeException("Invalid magic number: " + magicNum);
             }
+
         } catch (IOException e) {
             throw new RuntimeException("Unable to deserialize deletion vector", e);
         }
     }
 
+    // 解析得到一个删除向量
     static DeletionVector read(FileIO fileIO, DeletionFile deletionFile) throws IOException {
         Path path = new Path(deletionFile.path());
         try (SeekableInputStream input = fileIO.newInputStream(path)) {
-            input.seek(deletionFile.offset());
+
+            input.seek(deletionFile.offset());                 // deletion index 的索引起始位置
+
             DataInputStream dis = new DataInputStream(input);
             int actualLength = dis.readInt();
+
             if (actualLength != deletionFile.length()) {
                 throw new RuntimeException(
-                        "Size not match, actual size: "
-                                + actualLength
-                                + ", expert size: "
-                                + deletionFile.length()
-                                + ", file path: "
-                                + path);
+                        "Size not match, actual size: " + actualLength
+                                + ", expert size: " + deletionFile.length() + ", file path: " + path);
             }
             int magicNum = dis.readInt();
             if (magicNum == BitmapDeletionVector.MAGIC_NUMBER) {
@@ -138,11 +142,14 @@ public interface DeletionVector {
         return dvMaintainer::deletionVectorOf;
     }
 
-    static Factory factory(
-            FileIO fileIO, List<DataFileMeta> files, @Nullable List<DeletionFile> deletionFiles) {
+    static Factory factory(FileIO fileIO,
+                           List<DataFileMeta> files,
+                           @Nullable List<DeletionFile> deletionFiles) {
+
         if (deletionFiles == null) {
             return emptyFactory();
         }
+
         Map<String, DeletionFile> fileToDeletion = new HashMap<>();
         for (int i = 0; i < files.size(); i++) {
             DeletionFile deletionFile = deletionFiles.get(i);

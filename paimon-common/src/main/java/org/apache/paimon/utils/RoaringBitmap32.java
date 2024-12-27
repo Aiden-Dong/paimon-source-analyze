@@ -24,11 +24,12 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
-/** A compressed bitmap for 32-bit integer. */
+/** 32 位整数的压缩位图。 */
 public class RoaringBitmap32 {
 
     public static final int MAX_VALUE = Integer.MAX_VALUE;
 
+    // 高效的位图压缩工具
     private final RoaringBitmap roaringBitmap;
 
     public RoaringBitmap32() {

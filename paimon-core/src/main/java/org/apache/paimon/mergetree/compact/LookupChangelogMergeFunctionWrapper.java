@@ -128,14 +128,15 @@ public class LookupChangelogMergeFunctionWrapper<T>
 
         // 2. Lookup if latest high level record is absent
         if (highLevel == null) {
-            InternalRow lookupKey = candidates.get(0).key();
+            InternalRow lookupKey = candidates.get(0).key(); // 获取主键
             T lookupResult = lookup.apply(lookupKey);
             if (lookupResult != null) {
                 if (lookupStrategy.deletionVector) {
                     PositionedKeyValue positionedKeyValue = (PositionedKeyValue) lookupResult;
                     highLevel = positionedKeyValue.keyValue();
-                    deletionVectorsMaintainer.notifyNewDeletion(
-                            positionedKeyValue.fileName(), positionedKeyValue.rowPosition());
+
+                    deletionVectorsMaintainer.notifyNewDeletion(positionedKeyValue.fileName(), positionedKeyValue.rowPosition());
+
                 } else {
                     highLevel = (KeyValue) lookupResult;
                 }

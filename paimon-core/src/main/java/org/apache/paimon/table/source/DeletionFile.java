@@ -30,13 +30,12 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Deletion file for data file, the first 4 bytes are length, should, the following is the bitmap
- * content.
+ * 数据文件的删除文件，前 4 个字节是长度，应该，以下是位图内容。
  *
  * <ul>
- *   <li>The first 4 bytes are length, should equal to {@link #length()}.
- *   <li>Next 4 bytes are the magic number, should be equal to 1581511376.
- *   <li>The remaining content should be a RoaringBitmap.
+ *   <li>前 4 个字节是长度，应等于 {@link #length()}。</li>
+ *   <li>接下来的 4 个字节是魔数，应等于 1581511376。</li>
+ *   <li>其余内容应为 RoaringBitmap。</li>
  * </ul>
  */
 @Public

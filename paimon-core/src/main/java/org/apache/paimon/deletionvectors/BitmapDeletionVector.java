@@ -26,8 +26,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * A {@link DeletionVector} based on {@link RoaringBitmap32}, it only supports files with row count
- * not exceeding {@link RoaringBitmap32#MAX_VALUE}.
+ * 基于 {@link RoaringBitmap32} 的 {@link DeletionVector}，
+ *      它仅支持行数不超过 {@link RoaringBitmap32#MAX_VALUE} 的文件。
  */
 public class BitmapDeletionVector implements DeletionVector {
 
@@ -68,11 +68,14 @@ public class BitmapDeletionVector implements DeletionVector {
 
     @Override
     public byte[] serializeToBytes() {
+
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 DataOutputStream dos = new DataOutputStream(bos)) {
+
             dos.writeInt(MAGIC_NUMBER);
             roaringBitmap.serialize(dos);
             return bos.toByteArray();
+
         } catch (Exception e) {
             throw new RuntimeException("Unable to serialize deletion vector", e);
         }
@@ -86,8 +89,8 @@ public class BitmapDeletionVector implements DeletionVector {
 
     private void checkPosition(long position) {
         if (position > RoaringBitmap32.MAX_VALUE) {
-            throw new IllegalArgumentException(
-                    "The file has too many rows, RoaringBitmap32 only supports files with row count not exceeding 2147483647.");
+            throw new IllegalArgumentException("The file has too many rows, " +
+                    "RoaringBitmap32 only supports files with row count not exceeding 2147483647.");
         }
     }
 }

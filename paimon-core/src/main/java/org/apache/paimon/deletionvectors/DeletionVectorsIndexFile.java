@@ -35,7 +35,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.CRC32;
 
-/** DeletionVectors index file. */
+/**
+ * DeletionVectors index file.
+ * Deletion-Vectors 的索引文件只包含涉及到删除操作的每个文件的位图信息，
+ * 改文件的元信息 { <file, (startPos, limit)> } 保存在 manifest 中
+ * */
 public class DeletionVectorsIndexFile extends IndexFile {
 
     public static final String DELETION_VECTORS_INDEX = "DELETION_VECTORS";
@@ -46,20 +50,19 @@ public class DeletionVectorsIndexFile extends IndexFile {
     }
 
     /**
-     * Reads all deletion vectors from a specified file.
+     * 从指定文件中读取所有删除向量。
      *
-     * @param fileName The name of the file from which to read the deletion vectors.
-     * @param deletionVectorRanges A map where the key represents which file the DeletionVector
-     *     belongs to and the value is a Pair object specifying the range (start position and size)
-     *     within the file where the deletion vector data is located.
-     * @return A map where the key represents which file the DeletionVector belongs to, and the
-     *     value is the corresponding DeletionVector object.
-     * @throws UncheckedIOException If an I/O error occurs while reading from the file.
+     * @param fileName 要从中读取删除向量的文件名。
+     * @param deletionVectorRanges 一个映射，其中键表示 DeletionVector 所属的文件，值是一个 Pair 对象，指定删除向量数据在文件中的范围（起始位置和大小）。
+     * @return 一个映射，其中键表示 DeletionVector 所属的文件，值是相应的 DeletionVector 对象。
+     * @throws UncheckedIOException 如果在从文件读取时发生 I/O 错误。
      */
     public Map<String, DeletionVector> readAllDeletionVectors(
             String fileName, LinkedHashMap<String, Pair<Integer, Integer>> deletionVectorRanges) {
+
         Map<String, DeletionVector> deletionVectors = new HashMap<>();
         Path filePath = pathFactory.toPath(fileName);
+
         try (SeekableInputStream inputStream = fileIO.newInputStream(filePath)) {
             checkVersion(inputStream);
             DataInputStream dataInputStream = new DataInputStream(inputStream);
@@ -72,9 +75,7 @@ public class DeletionVectorsIndexFile extends IndexFile {
         } catch (Exception e) {
             throw new RuntimeException(
                     "Unable to read deletion vectors from file: "
-                            + filePath
-                            + ", deletionVectorRanges: "
-                            + deletionVectorRanges,
+                            + filePath + ", deletionVectorRanges: " + deletionVectorRanges,
                     e);
         }
         return deletionVectors;
@@ -108,29 +109,28 @@ public class DeletionVectorsIndexFile extends IndexFile {
     }
 
     /**
-     * Write deletion vectors to a new file, the format of this file can be referenced at: <a
-     * href="https://cwiki.apache.org/confluence/x/Tws4EQ">PIP-16</a>.
+     * 将删除向量写入新文件，此文件的格式可以在以下链接中找到参考：<a href="https://cwiki.apache.org/confluence/x/Tws4EQ">PIP-16</a>。
      *
-     * @param input A map where the key represents which file the DeletionVector belongs to, and the
-     *     value is the corresponding DeletionVector object.
-     * @return A Pair object specifying the name of the written new file and a map where the key
-     *     represents which file the DeletionVector belongs to and the value is a Pair object
-     *     specifying the range (start position and size) within the file where the deletion vector
-     *     data is located.
-     * @throws UncheckedIOException If an I/O error occurs while writing to the file.
+     * @param input 一个映射，其中键表示 DeletionVector 所属的文件，值是对应的 DeletionVector 对象。
+     * @return 一个 Pair 对象，指定写入的新文件的名称以及一个映射，其中键表示 DeletionVector 所属的文件，值是一个 Pair 对象，
+     *     指定文件中的范围（起始位置和大小），删除向量数据位于该范围内。
+     * @throws UncheckedIOException 如果写入文件时发生 I/O 错误。
      */
-    public Pair<String, LinkedHashMap<String, Pair<Integer, Integer>>> write(
-            Map<String, DeletionVector> input) {
+    public Pair<String, LinkedHashMap<String, Pair<Integer, Integer>>> write(Map<String, DeletionVector> input) {
+
         int size = input.size();
-        LinkedHashMap<String, Pair<Integer, Integer>> deletionVectorRanges =
-                new LinkedHashMap<>(size);
+
+        // <file, (startPos, limit)>
+        LinkedHashMap<String, Pair<Integer, Integer>> deletionVectorRanges = new LinkedHashMap<>(size);
         Path path = pathFactory.newPath();
-        try (DataOutputStream dataOutputStream =
-                new DataOutputStream(fileIO.newOutputStream(path, true))) {
-            dataOutputStream.writeByte(VERSION_ID_V1);
+
+        try (DataOutputStream dataOutputStream = new DataOutputStream(fileIO.newOutputStream(path, true))) {
+
+            dataOutputStream.writeByte(VERSION_ID_V1);  // 写入版本信息
+
             for (Map.Entry<String, DeletionVector> entry : input.entrySet()) {
-                String key = entry.getKey();
-                byte[] valueBytes = entry.getValue().serializeToBytes();
+                String key = entry.getKey();                             // 拿到删除向量对应的文件
+                byte[] valueBytes = entry.getValue().serializeToBytes();  // 拿到删除向量对应的具体位图编码信息
                 deletionVectorRanges.put(key, Pair.of(dataOutputStream.size(), valueBytes.length));
                 dataOutputStream.writeInt(valueBytes.length);
                 dataOutputStream.write(valueBytes);
@@ -148,9 +148,7 @@ public class DeletionVectorsIndexFile extends IndexFile {
         if (version != VERSION_ID_V1) {
             throw new RuntimeException(
                     "Version not match, actual version: "
-                            + version
-                            + ", expert version: "
-                            + VERSION_ID_V1);
+                            + version + ", expert version: " + VERSION_ID_V1);
         }
     }
 

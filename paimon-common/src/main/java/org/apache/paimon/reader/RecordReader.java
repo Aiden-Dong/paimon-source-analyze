@@ -38,7 +38,7 @@ import java.util.function.Function;
  */
 
 @Public
-public interface RecordReader<T> extends Closeable {
+public interface  RecordReader<T> extends Closeable {
 
     /**
      * 读取一批记录。当达到输入的末尾时，该方法应返回 null。

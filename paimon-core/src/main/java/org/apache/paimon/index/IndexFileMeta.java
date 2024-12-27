@@ -44,8 +44,8 @@ public class IndexFileMeta {
     private final long rowCount;
 
     /**
-     * Metadata only used by {@link DeletionVectorsIndexFile}, use LinkedHashMap to ensure that the
-     * order of DeletionVectorRanges and the written DeletionVectors is consistent.
+     * 仅由 {@link DeletionVectorsIndexFile} 使用的元数据，
+     *      使用 LinkedHashMap 确保 DeletionVectorRanges 和写入的 DeletionVectors 的顺序一致。
      */
     private final @Nullable LinkedHashMap<String, Pair<Integer, Integer>> deletionVectorsRanges;
 
