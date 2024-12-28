@@ -198,7 +198,7 @@ public class KeyValueFileStoreWrite extends MemoryFileStoreWrite<KeyValue> {
 
         // 构建压缩管理器
         CompactManager compactManager =
-                createCompactManager(
+                    createCompactManager(
                         partition, bucket, compactStrategy, compactExecutor, levels, dvMaintainer);
 
         return new MergeTreeWriter(
