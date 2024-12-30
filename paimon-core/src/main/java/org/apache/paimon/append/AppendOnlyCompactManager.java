@@ -303,9 +303,8 @@ public class AppendOnlyCompactManager extends CompactFutureManager {
     }
 
     /**
-     * New files may be created during the compaction process, then the results of the compaction
-     * may be put after the new files, and this order will be disrupted. We need to ensure this
-     * order, so we force the order by sequence.
+     * 合并过程中可能会创建新文件，然后合并的结果可能会放在新文件之后，这种顺序会被破坏。
+     * 我们需要确保这个顺序，所以我们通过序列强制顺序。
      */
     public static Comparator<DataFileMeta> fileComparator(boolean ignoreOverlap) {
         return (o1, o2) -> {

@@ -44,8 +44,8 @@ public class MergeTreeCompactTask extends CompactTask {
     private final int outputLevel;                        // 输出的 level 层
 
     // 待合并的文件集合
-    // 每个 List<SortedRun> 之间数据是不重叠的
-    //     List<SortedRun> 内部， 不同的 SortedRun 之间数据可能会重叠
+    //        每个 List<SortedRun> 之间数据是不重叠的
+    //        List<SortedRun> 内部， 不同的 SortedRun 之间数据可能会重叠
     private final List<List<SortedRun>> partitioned;
     private final boolean dropDelete;                     // 是否删除 delete 数据
     private final int maxLevel;
@@ -54,13 +54,14 @@ public class MergeTreeCompactTask extends CompactTask {
     private int upgradeFilesNum;
 
     public MergeTreeCompactTask(
-            Comparator<InternalRow> keyComparator,   // b
+            Comparator<InternalRow> keyComparator,
             long minFileSize,
             CompactRewriter rewriter,
             CompactUnit unit,
             boolean dropDelete,
             int maxLevel,
             @Nullable CompactionMetrics.Reporter metricsReporter) {
+
         super(metricsReporter);
         this.minFileSize = minFileSize;
         this.rewriter = rewriter;
@@ -80,7 +81,7 @@ public class MergeTreeCompactTask extends CompactTask {
         // 检查顺序并压缩相邻且连续的文件
         // 注意：不能跳过中间文件进行压缩，这会破坏整体有序性
         for (List<SortedRun> section : partitioned) {
-            if (section.size() > 1) {  // 表示有重叠数据，需要进行压缩处理
+            if (section.size() > 1) {                 // 表示有重叠数据，需要进行压缩处理
                 candidate.add(section);
             } else {
                 // 无重叠：

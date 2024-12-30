@@ -68,11 +68,16 @@ public class UniversalCompaction implements CompactStrategy {
                 opCompactionInterval == null ? null : opCompactionInterval.toMillis();
     }
 
+    /***
+     * @param runs
+     *                      // level-0 的文件，每个文件都是一个 sorted-run
+     *                      // level>0 的文件，每层 所有文件对应一个 sorted-run
+     **/
     @Override
     public Optional<CompactUnit> pick(int numLevels, List<LevelSortedRun> runs) {
         int maxLevel = numLevels - 1;
 
-        // 如果是设置了执行 compacation 的时间范围， 则按时间进行 compaction
+        // 如果是设置了执行 compaction 的时间范围， 则按时间进行 compaction
         if (opCompactionInterval != null) {
             if (lastOptimizedCompaction == null || currentTimeMillis() - lastOptimizedCompaction > opCompactionInterval) {
                 LOG.debug("Universal compaction due to optimized compaction interval");
@@ -121,12 +126,13 @@ public class UniversalCompaction implements CompactStrategy {
         }
 
         // 计算总的大小
-        long candidateSize =
-                runs.subList(0, runs.size() - 1).stream()
+        // level-0 .... level-max-1 (不包含最后一个 SortedRun)
+        long candidateSize = runs.subList(0, runs.size() - 1).stream()
                         .map(LevelSortedRun::run)
                         .mapToLong(SortedRun::totalSize)
                         .sum();
 
+        // 最后一个 level 的 size
         long earliestRunSize = runs.get(runs.size() - 1).run().totalSize();
 
         // size amplification = percentage of additional size
@@ -158,11 +164,11 @@ public class UniversalCompaction implements CompactStrategy {
             int maxLevel, List<LevelSortedRun> runs, int candidateCount, boolean forcePick) {
 
         // 计算 [0-candidateCount) 的所有 sorted-run 的总大小
-        long candidateSize = candidateSize(runs, candidateCount);
+        long candidateSize = candidateSize(runs, candidateCount);  // 读取第一个 SortedRun 大小
 
-        //
         for (int i = candidateCount; i < runs.size(); i++) {
             LevelSortedRun next = runs.get(i);
+            // {compaction.size-ratio:1}
             if (candidateSize * (100.0 + sizeRatio) / 100.0 < next.run().totalSize()) {
                 break;
             }
