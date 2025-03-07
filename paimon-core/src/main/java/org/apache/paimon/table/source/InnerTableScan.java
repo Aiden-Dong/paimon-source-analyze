@@ -18,6 +18,7 @@
 
 package org.apache.paimon.table.source;
 
+import org.apache.paimon.manifest.ManifestFileScanner;
 import org.apache.paimon.metrics.MetricRegistry;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.utils.Filter;
@@ -55,6 +56,10 @@ public interface InnerTableScan extends TableScan {
     //
     default InnerTableScan withMetricsRegistry(MetricRegistry metricRegistry) {
         // do nothing, should implement this if need
+        return this;
+    }
+
+    default InnerTableScan withManifestFileScanner(ManifestFileScanner manifestFileScanner){
         return this;
     }
 }

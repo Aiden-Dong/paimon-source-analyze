@@ -28,6 +28,7 @@ import org.apache.paimon.index.IndexFileHandler;
 import org.apache.paimon.index.IndexFileMeta;
 import org.apache.paimon.io.DataFileMeta;
 import org.apache.paimon.manifest.FileKind;
+import org.apache.paimon.manifest.ManifestFileScanner;
 import org.apache.paimon.manifest.PartitionEntry;
 import org.apache.paimon.metrics.MetricRegistry;
 import org.apache.paimon.operation.DefaultValueAssigner;
@@ -136,6 +137,8 @@ public class SnapshotReaderImpl implements SnapshotReader {
         return this;
     }
 
+
+
     @Override
     public SnapshotReader withPartitionFilter(Map<String, String> partitionSpec) {
         if (partitionSpec != null) {
@@ -189,6 +192,12 @@ public class SnapshotReaderImpl implements SnapshotReader {
     public SnapshotReader withMode(ScanMode scanMode) {
         this.scanMode = scanMode;
         scan.withKind(scanMode);
+        return this;
+    }
+
+    @Override
+    public SnapshotReader withManifestFileScanner(ManifestFileScanner manifestFileScanner) {
+        this.scan.withManifestFileScanner(manifestFileScanner);
         return this;
     }
 

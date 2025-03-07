@@ -27,6 +27,7 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.disk.IOManager;
 import org.apache.paimon.fs.FileIO;
 import org.apache.paimon.fs.Path;
+import org.apache.paimon.manifest.ManifestFileScanner;
 import org.apache.paimon.manifest.PartitionEntry;
 import org.apache.paimon.metrics.MetricRegistry;
 import org.apache.paimon.predicate.LeafPredicate;
@@ -246,6 +247,12 @@ public class AuditLogTable implements DataTable, ReadonlyTable {
         }
 
         @Override
+        public SnapshotReader withManifestFileScanner(ManifestFileScanner manifestFileScanner) {
+            snapshotReader.withManifestFileScanner(manifestFileScanner);
+            return this;
+        }
+
+        @Override
         public SnapshotReader withPartitionFilter(Predicate predicate) {
             snapshotReader.withPartitionFilter(predicate);
             return this;
@@ -329,6 +336,12 @@ public class AuditLogTable implements DataTable, ReadonlyTable {
         @Override
         public InnerTableScan withMetricsRegistry(MetricRegistry metricsRegistry) {
             batchScan.withMetricsRegistry(metricsRegistry);
+            return this;
+        }
+
+        @Override
+        public InnerTableScan withManifestFileScanner(ManifestFileScanner manifestFileScanner) {
+            batchScan.withManifestFileScanner(manifestFileScanner);
             return this;
         }
 
@@ -426,6 +439,12 @@ public class AuditLogTable implements DataTable, ReadonlyTable {
         @Override
         public InnerStreamTableScan withMetricsRegistry(MetricRegistry metricsRegistry) {
             streamScan.withMetricsRegistry(metricsRegistry);
+            return this;
+        }
+
+        @Override
+        public InnerTableScan withManifestFileScanner(ManifestFileScanner manifestFileScanner) {
+            streamScan.withManifestFileScanner(manifestFileScanner);
             return this;
         }
     }

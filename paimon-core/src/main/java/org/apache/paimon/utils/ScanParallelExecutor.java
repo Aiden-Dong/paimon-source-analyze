@@ -34,12 +34,11 @@ import java.util.function.Function;
 import static org.apache.paimon.utils.FileUtils.COMMON_IO_FORK_JOIN_POOL;
 
 /**
- * This class is a parallel execution util class, which mainly aim to process tasks parallelly with
- * memory control.
+ * 这是一个并行执行工具类，主要用于在内存受控的情况下并行处理任务。
  */
 public class ScanParallelExecutor {
 
-    // reduce memory usage by batch iterable process, the cached result in memory will be queueSize
+    // 通过分批迭代处理减少内存占用，内存中缓存的结果数量为 queueSize
     public static <T, U> Iterable<T> parallelismBatchIterable(
             Function<List<U>, List<T>> processor, List<U> input, @Nullable Integer queueSize) {
         ForkJoinPool poolCandidate = COMMON_IO_FORK_JOIN_POOL;
@@ -53,8 +52,8 @@ public class ScanParallelExecutor {
         final int settledQueueSize = queueSize;
         return () ->
                 new Iterator<T>() {
-                    List<T> activeList = null;
-                    private int index = 0;
+                    List<T> activeList = null;   // 通过异步线程池获取部分结果
+                    private int index = 0;       // list 内部消费指针
 
                     @Override
                     public boolean hasNext() {

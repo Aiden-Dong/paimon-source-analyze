@@ -21,12 +21,7 @@ package org.apache.paimon.operation;
 import org.apache.paimon.Snapshot;
 import org.apache.paimon.data.BinaryRow;
 import org.apache.paimon.io.DataFileMeta;
-import org.apache.paimon.manifest.FileKind;
-import org.apache.paimon.manifest.ManifestCacheFilter;
-import org.apache.paimon.manifest.ManifestEntry;
-import org.apache.paimon.manifest.ManifestFileMeta;
-import org.apache.paimon.manifest.PartitionEntry;
-import org.apache.paimon.manifest.SimpleFileEntry;
+import org.apache.paimon.manifest.*;
 import org.apache.paimon.operation.metrics.ScanMetrics;
 import org.apache.paimon.partition.PartitionPredicate;
 import org.apache.paimon.predicate.Predicate;
@@ -69,6 +64,8 @@ public interface FileStoreScan {
     FileStoreScan withDataFileTimeMills(long dataFileTimeMills);
 
     FileStoreScan withManifestCacheFilter(ManifestCacheFilter manifestFilter);
+
+    FileStoreScan withManifestFileScanner(ManifestFileScanner manifestFileScanner);
 
     FileStoreScan withMetrics(ScanMetrics metrics);
 

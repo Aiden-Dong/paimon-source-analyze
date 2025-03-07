@@ -18,7 +18,6 @@ public class CatalogUtil {
   // 创建 paimon catalog
   public static Catalog getFilesystemCatalog() {
 
-
     CatalogContext context = CatalogContext.create(new Path("file:////Users/lan/tmp/paimon-catalog"));
     return CatalogFactory.createCatalog(context);
   }

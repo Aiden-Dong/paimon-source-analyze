@@ -116,7 +116,8 @@ public class DateTimeUtils {
     }
 
     public static Timestamp toInternal(long millis, int nanos) {
-        return Timestamp.fromEpochMillis(millis + LOCAL_TZ.getOffset(millis), nanos);
+        int offset = LOCAL_TZ.getOffset(millis);
+        return Timestamp.fromEpochMillis(millis + offset, nanos);
     }
 
     public static int toInternal(LocalDate date) {

@@ -166,6 +166,8 @@ public class InnerStreamTableScanImpl extends AbstractInnerTableScan
         return SnapshotNotExistPlan.INSTANCE;
     }
 
+
+
     private Plan nextPlan() {
         while (true) {
             if (isFullPhaseEnd) {

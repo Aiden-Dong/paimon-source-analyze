@@ -21,14 +21,7 @@ package org.apache.paimon.operation;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.Snapshot;
 import org.apache.paimon.data.BinaryRow;
-import org.apache.paimon.manifest.FileEntry;
-import org.apache.paimon.manifest.ManifestCacheFilter;
-import org.apache.paimon.manifest.ManifestEntry;
-import org.apache.paimon.manifest.ManifestFile;
-import org.apache.paimon.manifest.ManifestFileMeta;
-import org.apache.paimon.manifest.ManifestList;
-import org.apache.paimon.manifest.PartitionEntry;
-import org.apache.paimon.manifest.SimpleFileEntry;
+import org.apache.paimon.manifest.*;
 import org.apache.paimon.operation.metrics.ScanMetrics;
 import org.apache.paimon.operation.metrics.ScanStats;
 import org.apache.paimon.partition.PartitionPredicate;
@@ -85,6 +78,8 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
     private Snapshot specifiedSnapshot = null;
     private Filter<Integer> bucketFilter = null;                // bucket  过滤器
     private Filter<Integer> levelFilter = null;                 // level 过滤器
+
+    private ManifestFileScanner manifestFileScanner = null;
 
     private List<ManifestFileMeta> specifiedManifests = null;
     private ScanMode scanMode = ScanMode.ALL;
@@ -161,6 +156,12 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
         }
         withPartitionFilter(Collections.singletonList(partition));
         withBucket(bucket);
+        return this;
+    }
+
+    @Override
+    public FileStoreScan withManifestFileScanner(ManifestFileScanner manifestFileScanner) {
+        this.manifestFileScanner = manifestFileScanner;
         return this;
     }
 
@@ -384,24 +385,31 @@ public abstract class AbstractFileStoreScan implements FileStoreScan {
             Function<ManifestFileMeta, List<T>> manifestReader,
             @Nullable Filter<T> filterUnmergedEntry,
             @Nullable AtomicLong readEntries) {
-        Iterable<T> entries =
-                ScanParallelExecutor.parallelismBatchIterable(
-                        files -> {
-                            Stream<T> stream =
-                                    files.parallelStream()
-                                            .filter(this::filterManifestFileMeta)
-                                            .flatMap(m -> manifestReader.apply(m).stream());
-                            if (filterUnmergedEntry != null) {
-                                stream = stream.filter(filterUnmergedEntry::test);
-                            }
-                            List<T> entryList = stream.collect(Collectors.toList());
-                            if (readEntries != null) {
-                                readEntries.getAndAdd(entryList.size());
-                            }
-                            return entryList;
-                        },
-                        manifests,
-                        scanManifestParallelism);
+
+        if (this.manifestFileScanner == null){
+            this.manifestFileScanner = new DefaultManifesteFileScanner();
+        }
+
+        Iterable<T> entries = this.manifestFileScanner.readManifestEntrys(manifests,
+                manifestReader, filterUnmergedEntry, this::filterManifestFileMeta, readEntries, scanManifestParallelism);
+//        Iterable<T> entries =
+//                ScanParallelExecutor.parallelismBatchIterable(
+//                        files -> {
+//                            Stream<T> stream =
+//                                    files.parallelStream()
+//                                            .filter(this::filterManifestFileMeta)
+//                                            .flatMap(m -> manifestReader.apply(m).stream());
+//                            if (filterUnmergedEntry != null) {
+//                                stream = stream.filter(filterUnmergedEntry::test);
+//                            }
+//                            List<T> entryList = stream.collect(Collectors.toList());
+//                            if (readEntries != null) {
+//                                readEntries.getAndAdd(entryList.size());
+//                            }
+//                            return entryList;
+//                        },
+//                        manifests,
+//                        scanManifestParallelism);
 
         return FileEntry.mergeEntries(entries);
     }
