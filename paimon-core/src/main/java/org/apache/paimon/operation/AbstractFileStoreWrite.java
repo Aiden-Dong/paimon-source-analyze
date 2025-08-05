@@ -196,16 +196,16 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
         while (partIter.hasNext()) {
             // 迭代每个分区
             Map.Entry<BinaryRow, Map<Integer, WriterContainer<T>>> partEntry = partIter.next();
-            BinaryRow partition = partEntry.getKey();
-            Iterator<Map.Entry<Integer, WriterContainer<T>>> bucketIter = partEntry.getValue().entrySet().iterator();
+            BinaryRow partition = partEntry.getKey();       // 获取分区信息
+            Iterator<Map.Entry<Integer, WriterContainer<T>>> bucketIter = partEntry.getValue().entrySet().iterator();  // 获取bucket 迭代器
 
             while (bucketIter.hasNext()) {
                 // 迭代每个 bucket
                 Map.Entry<Integer, WriterContainer<T>> entry = bucketIter.next();
-                int bucket = entry.getKey();
-                WriterContainer<T> writerContainer = entry.getValue();
+                int bucket = entry.getKey();                             // bucketID
+                WriterContainer<T> writerContainer = entry.getValue();   //
 
-                // 调用write 的预提交过程
+                // 调用write 的预提交过程---数据刷写磁盘(如果有需要则提交 compaction, 返回影响文件元信息)
                 CommitIncrement increment = writerContainer.writer.prepareCommit(waitCompaction);
                 List<IndexFileMeta> newIndexFiles = new ArrayList<>();
 
@@ -220,9 +220,9 @@ public abstract class AbstractFileStoreWrite<T> implements FileStoreWrite<T> {
                 CommitMessageImpl committable = new CommitMessageImpl(
                                 partition,
                                 bucket,
-                                increment.newFilesIncrement(),
-                                increment.compactIncrement(),
-                                new IndexIncrement(newIndexFiles));
+                                increment.newFilesIncrement(),        // 变更文件信息
+                                increment.compactIncrement(),         // compaction 的前后记录信息
+                                new IndexIncrement(newIndexFiles));   // 新增索引文件
 
                 result.add(committable);
 

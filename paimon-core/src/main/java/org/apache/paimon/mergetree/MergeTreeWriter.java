@@ -86,12 +86,12 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
     private final ChangelogProducer changelogProducer;
     @Nullable private final FieldsComparator userDefinedSeqComparator;
 
-    private final LinkedHashSet<DataFileMeta> newFiles;                // 记录当前所有的新增文件信息
+    private final LinkedHashSet<DataFileMeta> newFiles;                // 记录当前所有的新增 sst 文件信息
     private final LinkedHashSet<DataFileMeta> deletedFiles;
     private final LinkedHashSet<DataFileMeta> newFilesChangelog;       // 记录本次新增的 changelog 文件
 
-    private final LinkedHashMap<String, DataFileMeta> compactBefore;
-    private final LinkedHashSet<DataFileMeta> compactAfter;
+    private final LinkedHashMap<String, DataFileMeta> compactBefore;    // 压缩之前的文件信息
+    private final LinkedHashSet<DataFileMeta> compactAfter;             // 压缩以后的文件信息
     private final LinkedHashSet<DataFileMeta> compactChangelog;
 
     private long newSequenceNumber;               // ?
@@ -232,7 +232,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
                 waitForLatestCompaction = true;
             }
 
-            // change log 写
+            // change log 写 -- 返回
             final RollingFileWriter<KeyValue, DataFileMeta> changelogWriter =
                     changelogProducer == ChangelogProducer.INPUT
                             ? writerFactory.createRollingChangelogFileWriter(0) : null;
@@ -272,7 +272,7 @@ public class MergeTreeWriter implements RecordWriter<KeyValue>, MemoryOwner {
 
     @Override
     public CommitIncrement prepareCommit(boolean waitCompaction) throws Exception {
-        flushWriteBuffer(waitCompaction, false);
+        flushWriteBuffer(waitCompaction, false);    // 将缓存数据刷写到磁盘，并形成文件元信息记录下来
         if (commitForceCompact) {
             waitCompaction = true;
         }

@@ -51,29 +51,28 @@ import static org.apache.paimon.utils.SerializationUtils.newStringType;
 /** Metadata of a data file. */
 public class DataFileMeta {
 
-    // Append only data files don't have any key columns and meaningful level value. it will use
-    // the following dummy values.
+
     public static final BinaryTableStats EMPTY_KEY_STATS =
             new BinaryTableStats(EMPTY_ROW, EMPTY_ROW, BinaryArray.fromLongArray(new Long[0]));
+
     public static final BinaryRow EMPTY_MIN_KEY = EMPTY_ROW;
     public static final BinaryRow EMPTY_MAX_KEY = EMPTY_ROW;
+
     public static final int DUMMY_LEVEL = 0;
 
-    private final String fileName;
-    private final long fileSize;
+    private final String fileName;               // 文件名
+    private final long fileSize;                 // 文件大小
+    private final long rowCount;                 // 有多少行数据（包含 ADD/DELETE）
 
-    // total number of rows (including add & delete) in this file
-    private final long rowCount;
+    private final BinaryRow minKey;              // 该文件 最小的 key
+    private final BinaryRow maxKey;              // 该文件 最大的 key
+    private final BinaryTableStats keyStats;     // 该文件的 key 的统计数据
+    private final BinaryTableStats valueStats;   // 该文件的 value 的统计数据
 
-    private final BinaryRow minKey;
-    private final BinaryRow maxKey;
-    private final BinaryTableStats keyStats;
-    private final BinaryTableStats valueStats;
-
-    private final long minSequenceNumber;
-    private final long maxSequenceNumber;
-    private final long schemaId;
-    private final int level;
+    private final long minSequenceNumber;        // 该文件的最小序列号
+    private final long maxSequenceNumber;        // 该文件的最大序列号
+    private final long schemaId;                 // 该文件对应的 schemaId
+    private final int level;                     // 该文件对应的层级
 
     private final List<String> extraFiles;
     private final Timestamp creationTime;
@@ -82,7 +81,7 @@ public class DataFileMeta {
     // Why don't we keep addRowCount and deleteRowCount?
     // Because in previous versions of DataFileMeta, we only keep rowCount.
     // We have to keep the compatibility.
-    private final @Nullable Long deleteRowCount;
+    private final @Nullable Long deleteRowCount;      // 该文件中删除行对应的数量
 
     // file index filter bytes, if it is small, store in data file meta
     private final @Nullable byte[] embeddedIndex;

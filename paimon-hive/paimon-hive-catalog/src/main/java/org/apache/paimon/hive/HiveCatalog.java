@@ -18,6 +18,7 @@
 
 package org.apache.paimon.hive;
 
+import org.apache.hadoop.hive.ql.metadata.Hive;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.annotation.VisibleForTesting;
 import org.apache.paimon.catalog.AbstractCatalog;
@@ -115,6 +116,7 @@ public class HiveCatalog extends AbstractCatalog {
     private final HiveConf hiveConf;
     private final String clientClassName;
     private final IMetaStoreClient client;
+    private final Hive hiveClient = null;
     private final String warehouse;
 
     private final LocationHelper locationHelper;
@@ -178,6 +180,7 @@ public class HiveCatalog extends AbstractCatalog {
         try {
             String databaseName = identifier.getDatabaseName();
             String tableName = identifier.getObjectName();
+
             if (client.tableExists(databaseName, tableName)) {
                 String location =
                         locationHelper.getTableLocation(client.getTable(databaseName, tableName));

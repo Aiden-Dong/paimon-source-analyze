@@ -42,6 +42,7 @@ case class WriteIntoPaimonTable(
   with SchemaHelper
   with Logging {
 
+
   // 是否要合并 schema
   private lazy val mergeSchema = options.get(SparkConnectorOptions.MERGE_SCHEMA)
 

@@ -42,12 +42,12 @@ import static org.apache.paimon.utils.SerializationUtils.newBytesType;
  **/
 public class ManifestEntry implements FileEntry {
 
-    private final FileKind kind;
-    // for tables without partition this field should be a row with 0 columns (not null)
-    private final BinaryRow partition;
-    private final int bucket;
-    private final int totalBuckets;
-    private final DataFileMeta file;
+    private final FileKind kind;         // ADD - DELETE
+
+    private final BinaryRow partition;   // 分区信息
+    private final int bucket;            // bucket 信息
+    private final int totalBuckets;      // 总的bucket 数量
+    private final DataFileMeta file;     // 文件元信息
 
     public ManifestEntry(
             FileKind kind, BinaryRow partition, int bucket, int totalBuckets, DataFileMeta file) {
@@ -101,6 +101,7 @@ public class ManifestEntry implements FileEntry {
         return file;
     }
 
+    // 该文件的唯一标识
     @Override
     public Identifier identifier() {
         return new Identifier(partition, bucket, file.level(), file.fileName());

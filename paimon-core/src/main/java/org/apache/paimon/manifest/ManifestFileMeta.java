@@ -154,9 +154,9 @@ public class ManifestFileMeta {
 
         try {
             Optional<List<ManifestFileMeta>> fullCompacted = tryFullCompaction(
-                            input,                // manifest 文件集合
-                            newMetas,             // 输出文件集合
-                            manifestFile,         // manifest  handler
+                            input,                     // manifest 文件集合
+                            newMetas,                   // 输出文件集合
+                            manifestFile,               // manifest  handler
                             suggestedMetaSize,          // manifest.target-file-size (8M)
                             manifestFullCompactionSize, // manifest.full-compaction-threshold-size (16M)
                             partitionType);
@@ -389,7 +389,7 @@ public class ManifestFileMeta {
             totalDeltaFileSize += file.fileSize();
         }
 
-        //  TODO - 3 : 如果所有增量的 manifest 文件大小不足 {manifest.target-file-size}, 则不触发 full-compaction
+        //  TODO - 3 : 如果所有增量的 manifest 文件大小不足 {manifest.full-compaction-threshold-size}, 则不触发 full-compaction
         if (totalDeltaFileSize < sizeTrigger) {
             return Optional.empty();
         }

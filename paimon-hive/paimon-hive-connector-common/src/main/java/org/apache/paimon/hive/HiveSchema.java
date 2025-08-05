@@ -95,9 +95,13 @@ public class HiveSchema {
 
     /** Extract {@link HiveSchema} from Hive serde properties. */
     public static HiveSchema extract(@Nullable Configuration configuration, Properties properties) {
+        // 获取表的 location 信息
         String location = LocationKeyExtractor.getPaimonLocation(configuration, properties);
+
         // 从 schema manager 文件中读取 schema 信息
         Optional<TableSchema> tableSchema = getExistingSchema(configuration, location);
+
+        // 从表元信息中读取 hive 的元信息属性
         String columnProperty = properties.getProperty(hive_metastoreConstants.META_TABLE_COLUMNS);
 
         // Create hive external table with empty ddl

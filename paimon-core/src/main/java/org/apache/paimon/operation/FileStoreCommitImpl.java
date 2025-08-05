@@ -229,12 +229,12 @@ public class FileStoreCommitImpl implements FileStoreCommit {
         List<SimpleFileEntry> baseEntries = new ArrayList<>();
 
         // 整理收集变更信息
-        List<ManifestEntry> appendTableFiles = new ArrayList<>();
-        List<ManifestEntry> appendChangelog = new ArrayList<>();
-        List<ManifestEntry> compactTableFiles = new ArrayList<>();
-        List<ManifestEntry> compactChangelog = new ArrayList<>();
-        List<IndexManifestEntry> appendHashIndexFiles = new ArrayList<>();
-        List<IndexManifestEntry> compactDvIndexFiles = new ArrayList<>();
+        List<ManifestEntry> appendTableFiles = new ArrayList<>();            // 当前 commit 变更的文件信息， 包含 ADD - DELETE
+        List<ManifestEntry> appendChangelog = new ArrayList<>();             // 当前 commit 新增的 changelog 文件元信息
+        List<ManifestEntry> compactTableFiles = new ArrayList<>();           // 当前 commit compaction 过程文件变更信息， 包含 ADD - DELETE
+        List<ManifestEntry> compactChangelog = new ArrayList<>();            // 当前 changelog 的 compaction 信息
+        List<IndexManifestEntry> appendHashIndexFiles = new ArrayList<>();   // 新增的 index 文件元信息
+        List<IndexManifestEntry> compactDvIndexFiles = new ArrayList<>();    // 新增的 delete vection 文件元信息
 
         collectChanges(committable.fileCommittables(),
                 appendTableFiles,
@@ -262,7 +262,8 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
                 if (latestSnapshot != null && checkAppendFiles) {
 
-                    // 获取最后一次 snapshot 当dui前变更分区下所有有效的SST文件信息
+                    // 获取最后一次 snapshot 当前变更分区下所有有效的SST文件信息
+                    // appendTableFiles, compactTableFiles 用于锁定影响分区
                     baseEntries.addAll(readAllEntriesFromChangedPartitions(latestSnapshot, appendTableFiles, compactTableFiles));
 
                     // 检查新增的 SST 文件是否跟base的SST文件冲突
@@ -696,7 +697,7 @@ public class FileStoreCommitImpl implements FileStoreCommit {
             List<ManifestEntry> changesWithOverwrite = new ArrayList<>();
             List<IndexManifestEntry> indexChangesWithOverwrite = new ArrayList<>();
             if (latestSnapshot != null) {
-                // 读取最后一次snapshot 的当前分区所有有效的 manifest
+                // 读取最后一次snapshot 的当前分区所有有效的 manifest-entry
                 List<ManifestEntry> currentEntries =
                         scan.withSnapshot(latestSnapshot).withPartitionFilter(partitionFilter).plan().files();
                 // 将匹配到的所有文件增加删除标志，标识文件被删除
@@ -741,14 +742,14 @@ public class FileStoreCommitImpl implements FileStoreCommit {
 
     @VisibleForTesting
     public boolean tryCommitOnce(
-            List<ManifestEntry> tableFiles,
-            List<ManifestEntry> changelogFiles,
-            List<IndexManifestEntry> indexFiles,
+            List<ManifestEntry> tableFiles,       // 变更的基础文件信息
+            List<ManifestEntry> changelogFiles,   // 变更的 changelog 文件信息
+            List<IndexManifestEntry> indexFiles,  // 变更的 index 文件信息
             long identifier,
             @Nullable Long watermark,
             Map<Integer, Long> logOffsets,
-            Snapshot.CommitKind commitKind,
-            @Nullable Snapshot latestSnapshot,
+            Snapshot.CommitKind commitKind,        // 变更类型
+            @Nullable Snapshot latestSnapshot,     // 基于当前的 snapshot 变更
             ConflictCheck conflictCheck,
             String branchName,
             @Nullable String newStatsFileName) {
@@ -975,13 +976,13 @@ public class FileStoreCommitImpl implements FileStoreCommit {
     @SafeVarargs
     private final List<SimpleFileEntry> readAllEntriesFromChangedPartitions(Snapshot snapshot, List<ManifestEntry>... changes) {
 
-        List<BinaryRow> changedPartitions =
+        List<BinaryRow> changedPartitions =                                  // 获取当前 changes 影响的分区统计
                 Arrays.stream(changes)
                         .flatMap(Collection::stream)
                         .map(ManifestEntry::partition)
                         .distinct()
                         .collect(Collectors.toList());
-        try {
+        try {  // 获取当前 snapshot 当前分区的当前影响分区的所有有效文件（剔除掉 DELETE 文件）
             return scan.withSnapshot(snapshot)  // 获取当前 snapshot
                     .withPartitionFilter(changedPartitions)  // 获取当前影响分区
                     .readSimpleEntries();

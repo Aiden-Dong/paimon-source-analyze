@@ -39,11 +39,12 @@ import java.util.Collections.singletonMap
 
 import scala.collection.JavaConverters._
 
+
+// paimon-spark 写入工具
 case class PaimonSparkWriter(table: FileStoreTable) {
 
-  private lazy val tableSchema = table.schema
-
-  private lazy val rowType = table.rowType()
+  private lazy val tableSchema = table.schema       // 表信息相关
+  private lazy val rowType = table.rowType()        // 表字段类型
 
   private lazy val bucketMode = table match {
     case fileStoreTable: FileStoreTable =>
@@ -52,12 +53,15 @@ case class PaimonSparkWriter(table: FileStoreTable) {
       BucketMode.FIXED
   }
 
+  // 主键列信息
   private lazy val primaryKeyCols = tableSchema.trimmedPrimaryKeys().asScala
 
   private lazy val serializer = new CommitMessageSerializer
 
+  //  paimon writer 工具类
   val writeBuilder: BatchWriteBuilder = table.newBatchWriteBuilder()
 
+  // 不合并计划
   def writeOnly(): PaimonSparkWriter = {
     PaimonSparkWriter(table.copy(singletonMap(WRITE_ONLY.key(), "true")))
   }

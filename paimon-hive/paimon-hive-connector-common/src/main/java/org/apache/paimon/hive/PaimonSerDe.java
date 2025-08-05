@@ -68,14 +68,16 @@ public class PaimonSerDe extends AbstractSerDe {
             System.out.println(String.format("{%s} -> {%s}", key, value));
         }
 
+        this.tableSchema = new HiveSchema(RowType.builder().build());
 
-        String dataFieldStr = properties.getProperty(PaimonStorageHandler.PAIMON_TABLE_FIELDS);
-        if (dataFieldStr != null) {
-            List<DataField> dataFields = JsonSerdeUtil.fromJson(dataFieldStr, new TypeReference<List<DataField>>() {});
-            this.tableSchema = new HiveSchema(new RowType(dataFields));
-        } else {
-            this.tableSchema = HiveSchema.extract(configuration, properties);
-        }
+
+//        String dataFieldStr = properties.getProperty(PaimonStorageHandler.PAIMON_TABLE_FIELDS);
+//        if (dataFieldStr != null) {
+//            List<DataField> dataFields = JsonSerdeUtil.fromJson(dataFieldStr, new TypeReference<List<DataField>>() {});
+//            this.tableSchema = new HiveSchema(new RowType(dataFields));
+//        } else {
+//            this.tableSchema = HiveSchema.extract(configuration, properties);
+//        }
 
         inspector =
                 new PaimonInternalRowObjectInspector(

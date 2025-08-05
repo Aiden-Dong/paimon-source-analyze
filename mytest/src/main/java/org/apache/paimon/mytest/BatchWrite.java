@@ -1,5 +1,7 @@
 package org.apache.paimon.mytest;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.apache.paimon.data.BinaryArray;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.GenericRow;
@@ -17,6 +19,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import static org.apache.paimon.CoreOptions.WRITE_ONLY;
+
 /**************************************************************************************************
  * <pre>                                                                                          *
  *  .....                                                                                         *
@@ -29,37 +33,35 @@ public class BatchWrite {
   public static void main(String[] args) throws Exception {
     // 1. 创建一个WriteBuilder（可序列化）
     Table table = TableUtil.getTable();                                // PrimaryKeyFileStoreTable
-    BatchWriteBuilder writeBuilder = table.newBatchWriteBuilder();     // BatchWriteBuilderImpl
 
+    BatchWriteBuilder writeBuilder = table.newBatchWriteBuilder();     // BatchWriteBuilderImpl
     IOManager ioManager  = new IOManagerImpl("/Users/lan/tmp/paimon-catalog/my_db.db/tmp");
 
     // 2. 在分布式任务中写入记录
-    BatchTableWrite write = (BatchTableWrite)writeBuilder.newWrite()
+    BatchTableWrite write = (BatchTableWrite)writeBuilder
+            .newWrite()
             .withIOManager(ioManager);  // TableWriteImpl
 
-    long startTime = System.currentTimeMillis();
+    for(int i = 10; i < 20; i++){
+      GenericRow genericRow = GenericRow.ofKind(RowKind.DELETE,
+              BinaryString.fromString(String.valueOf(i)),
+              BinaryString.fromString(String.format("hello_%d", i)),
+              BinaryString.fromString("pt_1"));
 
-    for(int i = 0; i < 10; i++){
-
-      GenericRow genericRow = GenericRow.of (
-              (long)i,
-              Timestamp.fromEpochMillis(i)
-      );
+//      GenericRow genericRow = GenericRow.of (
+//              BinaryString.fromString(String.valueOf(i)),
+//              BinaryString.fromString(String.format("hello_%d", i)),
+//              BinaryString.fromString("pt_1")
+//      );
       write.write(genericRow);
     }
 
+    // 记录每个 write 的文件变更信息
     List<CommitMessage> messages = write.prepareCommit();
 
     // 3. 将所有 CommitMessages 收集到一个全局节点并提交
     BatchTableCommit commit = writeBuilder.newCommit();
-
-    System.out.println("commit start");
     commit.commit(messages);
-    System.out.println("commit success");
-
-    long stopTime = System.currentTimeMillis();
-    System.out.println("耗时 : " + (stopTime - startTime));
-
   }
 }
 

@@ -30,36 +30,30 @@ public class BatchRead {
 
  public static void main(String[] args) throws IOException {
 
-  // 1. Create a ReadBuilder and push filter (`withFilter`)
-  // and projection (`withProjection`) if necessary
-//  TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
   Table table = TableUtil.getTable();   // PrimaryKeyFileStoreTable
 
-  PredicateBuilder builder = new PredicateBuilder(
-          RowType.of(DataTypes.BIGINT(),
-                  DataTypes.TIMESTAMP()
-          ));
+  int[] projection = new int[] {0, 1, 2};
 
-  int[] projection = new int[] {0, 1};
 
   ReadBuilder readBuilder = table.newReadBuilder()
           .withProjection(projection);
 
   // 3. Distribute these splits to different tasks
 
-  List<Split> splits = readBuilder
-          .newScan()
+  List<Split> splits = readBuilder.newScan()
           .plan()
           .splits();
 
    InnerTableRead read = (InnerTableRead)readBuilder.newRead();
+
    RecordReader<InternalRow> reader = read.createReader(splits);
 
    reader.forEachRemaining(internalRow -> {
+    String s = internalRow.getString(0).toString();
+    String s1 = internalRow.getString(1).toString();
+    String s2 = internalRow.getString(2).toString();
 
-    long f0 = internalRow.getLong(0);
-    Timestamp f1 = internalRow.getTimestamp(1, 6);
-    System.out.println(String.format("(%d, %d)",f0, f1.getMillisecond()));
+    System.out.println(String.format("%s,%s,%s", s, s1, s2));
    });
   }
 
